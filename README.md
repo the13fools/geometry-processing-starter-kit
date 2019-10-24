@@ -8,8 +8,8 @@ IGL code mimicks examples from the IGL tutorials.
 ## To download and build
 
 ```
-git clone --recurse-submodules https://github.com/nmwsharp/libigl-polyscope-project-template.git
-cd libigl-polyscope-project-template
+git clone --recurse-submodules https://github.com/the13fools/geometry-processing-starter-kit.git
+cd geometry-processing-starter-kit
 mkdir build
 cd build
 cmake ..
@@ -29,3 +29,28 @@ Notice that as quantities are added to Polyscope, they appear in the selection w
 Try clicking a vertex to see the quantities associated with that vertex. Clicking may be easier if you first show edge by dragging the "edge width" slider in the left panel.
 
 Check out `src/main.cpp` to see how easy it is! There are only 12 lines of Polyscope code in the whole demo to generate this visualization.
+
+This is a merge from the LIBIGL physics project.
+
+# libigl example physics project
+
+A blank project example showing how to set up a simple physical simulation using libigl and cmake. Based on Alec Jacobson's libigl example project. This project contains some boilerplate that sets up a physical simulation to run in its own thread, with rendering provided by libigl.
+
+## Compile
+
+Compile this project using the standard cmake routine:
+
+    mkdir build
+    cd build
+    cmake ..
+    make
+
+This should find and build the dependencies and create a `example_bin` binary.
+
+## Run
+
+From within the `build` directory just issue:
+
+    ./example_bin
+
+A glfw app should launch displaying a 3D cube.

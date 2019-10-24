@@ -61,7 +61,7 @@ else()
 endif()
 
 # Find Eigen
-find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+# find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -85,7 +85,7 @@ add_executable(
         )
 
 # Include settings
-target_include_directories(libIGL-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include")
+target_include_directories(libIGL-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/external/eigen")
 
 # Link settings
-target_link_libraries(libIGL-polyscope-example polyscope Eigen3::Eigen)
+target_link_libraries(libIGL-polyscope-example polyscope)
