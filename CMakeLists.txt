@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0.0)
 
-project("libIGL polyscope example project")
+project("example project")
 
 # Maybe stop from CMAKEing in the wrong place
 if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -78,14 +78,17 @@ add_subdirectory("deps/polyscope")
 #set(LIBIGL_WITH_OPENGL_GLFW_IMGUI OFF CACHE BOOL "Use ImGui" )
 #add_subdirectory("deps/libIGL")
 
+
+file(GLOB SRCFILES src/*.cpp)
+
 # Create an executable
 add_executable(
-        libIGL-polyscope-example
-        src/main.cpp
+        geometry-processing-starter-kit_bin
+        ${SRCFILES}
         )
 
 # Include settings
-target_include_directories(libIGL-polyscope-example PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/external/eigen")
+target_include_directories(geometry-processing-starter-kit_bin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/external/eigen")
 
 # Link settings
-target_link_libraries(libIGL-polyscope-example polyscope)
+target_link_libraries(geometry-processing-starter-kit_bin polyscope)

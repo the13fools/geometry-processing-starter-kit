@@ -4,6 +4,11 @@ Demonstrates basic functionality and project setup for using Polyscope with libI
 
 IGL code mimicks examples from the IGL tutorials.
 
+Need to update this line in the CMakeLists.txt
+```
+"${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/external/eigen"
+```
+
 
 ## To download and build
 

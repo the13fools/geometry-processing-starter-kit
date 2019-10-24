@@ -129,23 +129,25 @@ void callback() {
 
 int main(int argc, char **argv) {
   // Configure the argument parser
-  args::ArgumentParser parser("A simple demo of Polyscope with libIGL.\nBy "
-                              "Nick Sharp (nsharp@cs.cmu.edu)",
-                              "");
-  args::Positional<std::string> inFile(parser, "mesh", "input mesh");
 
-  // Parse args
-  try {
-    parser.ParseCLI(argc, argv);
-  } catch (args::Help) {
-    std::cout << parser;
-    return 0;
-  } catch (args::ParseError e) {
-    std::cerr << e.what() << std::endl;
 
-    std::cerr << parser;
-    return 1;
-  }
+  // args::ArgumentParser parser("A simple demo of Polyscope with libIGL.\nBy "
+  //                             "Nick Sharp (nsharp@cs.cmu.edu)",
+  //                             "");
+  // args::Positional<std::string> inFile(parser, "mesh", "input mesh");
+
+  // // Parse args
+  // try {
+  //   parser.ParseCLI(argc, argv);
+  // } catch (args::Help) {
+  //   std::cout << parser;
+  //   return 0;
+  // } catch (args::ParseError e) {
+  //   std::cerr << e.what() << std::endl;
+
+  //   std::cerr << parser;
+  //   return 1;
+  // }
 
   // Options
   polyscope::options::autocenterStructures = true;
@@ -155,8 +157,9 @@ int main(int argc, char **argv) {
   // Initialize polyscope
   polyscope::init();
 
-  std::string filename = args::get(inFile);
-  std::cout << "loading: " << filename << std::endl;
+  // std::string filename = args::get(inFile);
+  // std::cout << "loading: " << filename << std::endl;
+  std::string filename = "../bunnyhead.obj";
 
   // Read the mesh
   igl::readOBJ(filename, meshV, meshF);
