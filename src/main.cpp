@@ -1,131 +1,89 @@
 #include "polyscope/polyscope.h"
 
-#include <igl/PI.h>
-#include <igl/avg_edge_length.h>
-#include <igl/barycenter.h>
-#include <igl/boundary_loop.h>
-#include <igl/exact_geodesic.h>
-#include <igl/gaussian_curvature.h>
-#include <igl/invert_diag.h>
-#include <igl/lscm.h>
-#include <igl/massmatrix.h>
-#include <igl/per_vertex_normals.h>
-#include <igl/readOBJ.h>
+#include <thread>
 
-#include "polyscope/messages.h"
-#include "polyscope/point_cloud.h"
-#include "polyscope/surface_mesh.h"
+#include "VizHook.h"
 
-#include <iostream>
-#include <unordered_set>
-#include <utility>
 
-#include "args/args.hxx"
-#include "json/json.hpp"
+static PhysicsHook *hook = NULL;
 
-// The mesh, Eigen representation
-Eigen::MatrixXd meshV;
-Eigen::MatrixXi meshF;
+void toggleSimulation()
+{
+    if (!hook)
+        return;
 
-// Options for algorithms
-int iVertexSource = 7;
-
-void addCurvatureScalar() {
-  using namespace Eigen;
-  using namespace std;
-
-  VectorXd K;
-  igl::gaussian_curvature(meshV, meshF, K);
-  SparseMatrix<double> M, Minv;
-  igl::massmatrix(meshV, meshF, igl::MASSMATRIX_TYPE_DEFAULT, M);
-  igl::invert_diag(M, Minv);
-  K = (Minv * K).eval();
-
-  polyscope::getSurfaceMesh("input mesh")
-      ->addVertexScalarQuantity("gaussian curvature", K,
-                                polyscope::DataType::SYMMETRIC);
+    if (hook->isPaused())
+    {
+        hook->run();
+    }
+    else
+        hook->pause();
 }
 
-void computeDistanceFrom() {
-  Eigen::VectorXi VS, FS, VT, FT;
-  // The selected vertex is the source
-  VS.resize(1);
-  VS << iVertexSource;
-  // All vertices are the targets
-  VT.setLinSpaced(meshV.rows(), 0, meshV.rows() - 1);
-  Eigen::VectorXd d;
-  igl::exact_geodesic(meshV, meshF, VS, FS, VT, FT, d);
+void resetSimulation()
+{
+    if (!hook)
+        return;
 
-  polyscope::getSurfaceMesh("input mesh")
-      ->addVertexDistanceQuantity(
-          "distance from vertex " + std::to_string(iVertexSource), d);
+    hook->reset();
 }
 
-void computeParameterization() {
-  using namespace Eigen;
-  using namespace std;
+void drawGUICallback()
+{
+	ImGui::PushItemWidth(100); // Make ui elements 100 pixels wide,
+							   // instead of full width. Must have 
+							   // matching PopItemWidth() below.
 
-  // Fix two points on the boundary
-  VectorXi bnd, b(2, 1);
-  igl::boundary_loop(meshF, bnd);
-
-  if (bnd.size() == 0) {
-    polyscope::warning("mesh has no boundary, cannot parameterize");
-    return;
-  }
-
-  b(0) = bnd(0);
-  b(1) = bnd(round(bnd.size() / 2));
-  MatrixXd bc(2, 2);
-  bc << 0, 0, 1, 0;
-
-  // LSCM parametrization
-  Eigen::MatrixXd V_uv;
-  igl::lscm(meshV, meshF, b, bc, V_uv);
-
-  polyscope::getSurfaceMesh("input mesh")
-      ->addVertexParameterizationQuantity("LSCM parameterization", V_uv);
+    if(hook->showSimButtons() || true)
+    {
+   //     if (ImGui::CollapsingHeader("Weaving", ImGuiTreeNodeFlags_DefaultOpen))
+   //     {
+            if (ImGui::Button("Run/Pause Sim"))
+            {
+                toggleSimulation();
+            }
+            if (ImGui::Button("Reset Sim"))
+            {
+                resetSimulation();
+            }
+   //     }
+    }
+    hook->drawGUI();
+	ImGui::PopItemWidth();
 }
 
-void computeNormals() {
-  Eigen::MatrixXd N_vertices;
-  igl::per_vertex_normals(meshV, meshF, N_vertices);
 
-  polyscope::getSurfaceMesh("input mesh")
-      ->addVertexVectorQuantity("libIGL vertex normals", N_vertices);
-}
+// void callback() {
 
-void callback() {
+//   static int numPoints = 2000;
+//   static float param = 3.14;
 
-  static int numPoints = 2000;
-  static float param = 3.14;
+//   ImGui::PushItemWidth(100);
 
-  ImGui::PushItemWidth(100);
-
-  // Curvature
-  if (ImGui::Button("add curvature")) {
-    addCurvatureScalar();
-  }
+//   // Curvature
+//   if (ImGui::Button("add curvature")) {
+//  //   addCurvatureScalar();
+//   }
   
-  // Normals 
-  if (ImGui::Button("add normals")) {
-    computeNormals();
-  }
+//   // Normals 
+//   if (ImGui::Button("add normals")) {
+// //    computeNormals();
+//   }
 
-  // Param
-  if (ImGui::Button("add parameterization")) {
-    computeParameterization();
-  }
+//   // Param
+//   if (ImGui::Button("add parameterization")) {
+//  //   computeParameterization();
+//   }
 
-  // Geodesics
-  if (ImGui::Button("compute distance")) {
-    computeDistanceFrom();
-  }
-  ImGui::SameLine();
-  ImGui::InputInt("source vertex", &iVertexSource);
+//   // Geodesics
+//   if (ImGui::Button("compute distance")) {
+//  //   computeDistanceFrom();
+//   }
+//   ImGui::SameLine();
+// //  ImGui::InputInt("source vertex", &iVertexSource);
 
-  ImGui::PopItemWidth();
-}
+//   ImGui::PopItemWidth();
+// }
 
 int main(int argc, char **argv) {
   // Configure the argument parser
@@ -149,6 +107,7 @@ int main(int argc, char **argv) {
   //   return 1;
   // }
 
+
   // Options
   polyscope::options::autocenterStructures = true;
   polyscope::view::windowWidth = 1024;
@@ -157,21 +116,27 @@ int main(int argc, char **argv) {
   // Initialize polyscope
   polyscope::init();
 
-  // std::string filename = args::get(inFile);
-  // std::cout << "loading: " << filename << std::endl;
-  std::string filename = "../bunnyhead.obj";
+  hook = new VizHook();
+  hook->reset();
 
-  // Read the mesh
-  igl::readOBJ(filename, meshV, meshF);
+  polyscope::state::userCallback = drawGUICallback;
 
-  // Register the mesh with Polyscope
-  polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
+  // // std::string filename = args::get(inFile);
+  // // std::cout << "loading: " << filename << std::endl;
+  // std::string filename = "../bunnyhead.obj";
+
+  // // Read the mesh
+  // igl::readOBJ(filename, meshV, meshF);
+
+  // // Register the mesh with Polyscope
+  // polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
 
   // Add the callback
-  polyscope::state::userCallback = callback;
+//  polyscope::state::userCallback = callback;
 
   // Show the gui
   polyscope::show();
 
   return 0;
 }
+
