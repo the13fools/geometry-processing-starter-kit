@@ -1,3 +1,13 @@
+# This Template Merges two frameworks.  
+
+On one hand, we have a bunch of projects built on Etienne's physics starter code: https://github.com/evouga/libigl-example-physics-project
+
+On the other Polyscope is really shiny. http://polyscope.run/
+
+My goal here was to produce a minimal front end for porting over our projects to polyscope.  Perhaps it might also be useful for someone else as well!     
+
+Here are the readme's of the two projects, should clean them up a bit at some point.
+
 # libIGL & Polyscope Example Project
 
 Demonstrates basic functionality and project setup for using Polyscope with libIGL.
@@ -35,7 +45,6 @@ Try clicking a vertex to see the quantities associated with that vertex. Clickin
 
 Check out `src/main.cpp` to see how easy it is! There are only 12 lines of Polyscope code in the whole demo to generate this visualization.
 
-This is a merge from the LIBIGL physics project.
 
 # libigl example physics project
 
