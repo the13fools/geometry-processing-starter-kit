@@ -50,6 +50,7 @@ void drawGUICallback()
     }
     hook->drawGUI();
 	ImGui::PopItemWidth();
+  hook->render();
 }
 
 

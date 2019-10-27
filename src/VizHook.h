@@ -42,7 +42,7 @@ public:
     {
         renderQ = Q;
         renderF = F;
-        polyscope::getSurfaceMesh()->updateVertexPositions(renderQ);
+   //     polyscope::getSurfaceMesh()->updateVertexPositions<Eigen::MatrixXd>(renderQ);
     }
 
     virtual bool simulateOneStep()
@@ -50,21 +50,21 @@ public:
         Q += dt * V;
         Eigen::MatrixXd Force = k*(origQ - Q);
         V += dt * Force;
-  //      std::cout << V << std::endl;
+        std::cout << V << std::endl;
         
         return false;
     }
 
- //    virtual void renderRenderGeometry()
- //    {
- //    //    viewer.data().set_mesh(renderQ, renderF);
-	// //	renderQ = .9 * renderQ;
-	// 	polyscope::getSurfaceMesh()->updateVertexPositions<Eigen::MatrixXd>(renderQ);
-	// 	std::cout << "here" << std::endl;
+    virtual void renderRenderGeometry()
+    {
+    //    viewer.data().set_mesh(renderQ, renderF);
+	//	renderQ = .9 * renderQ;
+		polyscope::getSurfaceMesh()->updateVertexPositions<Eigen::MatrixXd>(renderQ);
+		std::cout << "here" << std::endl;
 			
-	// 	//	updateVertexPositions(renderQ);
- //        polyscope::requestRedraw();   
- //    }
+		//	updateVertexPositions(renderQ);
+        polyscope::requestRedraw();   
+    }
 
 private:
     double k;

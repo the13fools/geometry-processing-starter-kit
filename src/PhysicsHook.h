@@ -62,9 +62,8 @@ public:
      * extensive computation here or the UI will lag/become unresponsive (the whole reason the simulation itself
      * is in its own thread.)
      */
-    // I think we can get rid of this?
   //  virtual void renderRenderGeometry(igl::opengl::glfw::Viewer &viewer) = 0;
- //   virtual void renderRenderGeometry() = 0;
+    virtual void renderRenderGeometry() = 0;
 
     /*
     * Called when the user clicks on the simulation panel.
@@ -134,15 +133,13 @@ public:
 
  //   void render(igl::opengl::glfw::Viewer &viewer)
 
- /*   void render()
+    void render()
     {
         render_mutex.lock();
     //    renderRenderGeometry(viewer);
-//        renderRenderGeometry();
+        renderRenderGeometry();
         render_mutex.unlock();
     }
-
-	*/
 
     bool showSimButtons()
     {
@@ -173,7 +170,6 @@ protected:
                 done = simulateOneStep();
                 render_mutex.lock();
                 updateRenderGeometry();
-                polyscope::requestRedraw();  
                 render_mutex.unlock();
             }
             status_mutex.lock();
