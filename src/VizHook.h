@@ -12,8 +12,10 @@ public:
 
     virtual void drawGUI()
     {
-		ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
-		ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
+	//	ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
+	//	ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
+		ImGui::InputFloat("k scale", &k_scale);
+		ImGui::InputFloat("dt scale", &dt_scale);
 
     }
 
@@ -31,8 +33,8 @@ public:
         F << 0, 1, 2,
             2, 1, 3;
 
-        dt = 1e-3;
-        k = 1e-3;
+        dt = 1e-5;
+        k = 1e-2;
 
         polyscope::removeAllStructures();
         renderQ = Q;
@@ -50,10 +52,9 @@ public:
 
     virtual bool simulateOneStep()
     {
-		Q += V * (dt);//* (double)dt_scale);
-		Eigen::MatrixXd Force = (origQ - Q)*(k);// *(double)k_scale);
+		Q += V * (dt * (double)dt_scale);
+		Eigen::MatrixXd Force = (origQ - Q)*(k *(double)k_scale);
         V += dt * Force;
-
 	//	std::cout << V << std::endl;
         
         return false;
