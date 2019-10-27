@@ -12,6 +12,8 @@ public:
 
     virtual void drawGUI()
     {
+		ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
+		ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
 
     }
 
@@ -29,46 +31,45 @@ public:
         F << 0, 1, 2,
             2, 1, 3;
 
-        dt = 1e-2;
-        k = 1e-1;
+        dt = 1e-3;
+        k = 1e-3;
 
         polyscope::removeAllStructures();
         renderQ = Q;
         renderF = F; 
         polyscope::registerSurfaceMesh("cur state", renderQ, renderF);
+		k_scale = 1.;
+		dt_scale = 1.;
     }
 
     virtual void updateRenderGeometry()
     {
         renderQ = Q;
         renderF = F;
-   //     polyscope::getSurfaceMesh()->updateVertexPositions<Eigen::MatrixXd>(renderQ);
     }
 
     virtual bool simulateOneStep()
     {
-        Q += dt * V;
-        Eigen::MatrixXd Force = k*(origQ - Q);
+		Q += V * (dt);//* (double)dt_scale);
+		Eigen::MatrixXd Force = (origQ - Q)*(k);// *(double)k_scale);
         V += dt * Force;
-        std::cout << V << std::endl;
+
+	//	std::cout << V << std::endl;
         
         return false;
     }
 
     virtual void renderRenderGeometry()
     {
-    //    viewer.data().set_mesh(renderQ, renderF);
-	//	renderQ = .9 * renderQ;
-		polyscope::getSurfaceMesh()->updateVertexPositions<Eigen::MatrixXd>(renderQ);
-		std::cout << "here" << std::endl;
-			
-		//	updateVertexPositions(renderQ);
+		polyscope::getSurfaceMesh()->updateVertexPositions(renderQ);
         polyscope::requestRedraw();   
     }
 
 private:
     double k;
     double dt;
+	float dt_scale;
+	float k_scale;
     Eigen::MatrixXd origQ;
     Eigen::MatrixXd Q;
     Eigen::MatrixXd V;

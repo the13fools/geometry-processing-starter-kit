@@ -36,8 +36,8 @@ void drawGUICallback()
 
     if(hook->showSimButtons() || true)
     {
-   //     if (ImGui::CollapsingHeader("Weaving", ImGuiTreeNodeFlags_DefaultOpen))
-   //     {
+        if (ImGui::CollapsingHeader("Start Simulation.", ImGuiTreeNodeFlags_DefaultOpen))
+        {
             if (ImGui::Button("Run/Pause Sim"))
             {
                 toggleSimulation();
@@ -46,11 +46,11 @@ void drawGUICallback()
             {
                 resetSimulation();
             }
-   //     }
+        }
     }
     hook->drawGUI();
 	ImGui::PopItemWidth();
-  hook->render();
+    hook->render();
 }
 
 
@@ -89,6 +89,7 @@ void drawGUICallback()
 int main(int argc, char **argv) {
   // Configure the argument parser
 
+// Comment out parser.  Should be easy to add in commandline scripting with this though.
 
   // args::ArgumentParser parser("A simple demo of Polyscope with libIGL.\nBy "
   //                             "Nick Sharp (nsharp@cs.cmu.edu)",
@@ -122,20 +123,6 @@ int main(int argc, char **argv) {
 
   polyscope::state::userCallback = drawGUICallback;
 
-  // // std::string filename = args::get(inFile);
-  // // std::cout << "loading: " << filename << std::endl;
-  // std::string filename = "../bunnyhead.obj";
-
-  // // Read the mesh
-  // igl::readOBJ(filename, meshV, meshF);
-
-  // // Register the mesh with Polyscope
-  // polyscope::registerSurfaceMesh("input mesh", meshV, meshF);
-
-  // Add the callback
-//  polyscope::state::userCallback = callback;
-
-  // Show the gui
   polyscope::show();
 
   return 0;

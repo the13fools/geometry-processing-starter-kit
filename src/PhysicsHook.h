@@ -3,8 +3,6 @@
 
 #include <mutex>
 #include <thread>
-//#include <igl/opengl/glfw/Viewer.h>
-//#include <igl/opengl/glfw/imgui/ImGuiMenu.h>
 
 #include "polyscope/polyscope.h"
 
@@ -131,12 +129,9 @@ public:
         return ret;
     }
 
- //   void render(igl::opengl::glfw::Viewer &viewer)
-
     void render()
     {
         render_mutex.lock();
-    //    renderRenderGeometry(viewer);
         renderRenderGeometry();
         render_mutex.unlock();
     }
