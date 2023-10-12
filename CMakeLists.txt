@@ -1,6 +1,8 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.1)
 
-project("example project")
+project(starter-kit)
+
+
 
 # Maybe stop from CMAKEing in the wrong place
 if (CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR)
@@ -62,6 +64,12 @@ endif()
 
 # Find Eigen
 # find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+find_package(Eigen3 REQUIRED)
+include_directories(${EIGEN3_INCLUDE_DIR})
+
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 # Add polyscope
 message("\n\n == CMAKE recursively building Polyscope\n")
@@ -79,16 +87,36 @@ add_subdirectory("deps/polyscope")
 #add_subdirectory("deps/libIGL")
 
 
-file(GLOB SRCFILES src/*.cpp)
+# file(GLOB SRCFILES src/*.cpp)
+find_package(TinyAD REQUIRED)
+find_package(libigl REQUIRED)
+# include(libigl)
+file(GLOB SRCFILES src/*.cpp src/*.h src/*.hpp)	  
 
-# Create an executable
-add_executable(
-        geometry-processing-starter-kit_bin
-        ${SRCFILES}
-        )
+add_library(${PROJECT_NAME} ${SRCFILES})
+target_include_directories(${PROJECT_NAME} PUBLIC ${EIGEN3_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} igl::core)
 
-# Include settings
-target_include_directories(geometry-processing-starter-kit_bin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/external/eigen")
+set_target_properties(starter-kit PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON)
 
-# Link settings
-target_link_libraries(geometry-processing-starter-kit_bin polyscope)
+install(TARGETS ${PROJECT_NAME})
+
+message(${PROJECT_NAME})
+message("====== Adding Tools ======")
+
+add_subdirectory(tools/01_basic_test)
+add_subdirectory(tools/02_tiny_ad_test)
+
+# # Create an executable
+# add_executable(
+#         geometry-processing-starter-kit_bin
+#         ${SRCFILES}
+#         )
+
+# # Include settings
+# target_include_directories(geometry-processing-starter-kit_bin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/deps/libigl/include" ${EIGEN3_INCLUDE_DIR})
+
+# # Link settings
+# target_link_libraries(geometry-processing-starter-kit_bin polyscope)

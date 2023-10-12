@@ -63,6 +63,10 @@ public:
     virtual void renderRenderGeometry()
     {
 		polyscope::getSurfaceMesh()->updateVertexPositions(renderQ);
+        // polyscope::getSurfaceMesh()->centerBoundingBox();
+        // polyscope::getSurfaceMesh()->resetTransform();
+        // polyscope::view::resetCameraToHomeView();
+
         polyscope::requestRedraw();   
     }
 
