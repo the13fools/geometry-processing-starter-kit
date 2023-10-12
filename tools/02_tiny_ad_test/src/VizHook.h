@@ -14,7 +14,7 @@
 
 #include <igl/harmonic.h>
 #include <igl/boundary_loop.h>
-// #include <igl/per_vertex_normals.h>
+#include <igl/per_vertex_normals.h>
 #include <igl/map_vertices_to_circle.h>
 
 
@@ -57,6 +57,9 @@ public:
       polyscope::getSurfaceMesh()->edgeWidth = .6;
       polyscope::view::resetCameraToHomeView();
 
+      Eigen::MatrixXd N;
+      igl::per_vertex_normals(V,F,N);
+      polyscope::getSurfaceMesh()->addVertexColorQuantity("orig normals", ((N.array()*0.5)+0.5).eval())->setEnabled(true); //   ( ((N.array()*0.5)+0.5).eval());
 
       // Pre-compute triangle rest shapes in local coordinate systems
       rest_shapes.clear();
