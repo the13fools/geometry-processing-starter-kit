@@ -1,3 +1,1 @@
-Trying to run this code - integrate into framework from basic test
-
-https://github.com/alecjacobson/libigl-tinyad-example
+We're not done importing stuff but a little detour to get a basic vector field optimization working.

@@ -6,34 +6,12 @@
 
 
 
-
-
-// #include <igl/opengl/glfw/Viewer.h>
 #include "polyscope/polyscope.h"
 
 #include "VizHook.h"
 
-
-
 #include <thread>
 
-// /**
-//  * Compute tutte embedding with boundary on circle.
-//  * Per-vertex 2D coordinates returned as n_vertices-by-2 matrix.
-//  */
-// inline Eigen::MatrixXd tutte_embedding(
-//     const Eigen::MatrixXd& _V,
-//     const Eigen::MatrixXi& _F)
-// {
-//   Eigen::VectorXi b; // #constr boundary constraint indices
-//   Eigen::MatrixXd bc; // #constr-by-2 2D boundary constraint positions
-//   Eigen::MatrixXd P; // #V-by-2 2D vertex positions
-//   igl::boundary_loop(_F, b); // Identify boundary vertices
-//   igl::map_vertices_to_circle(_V, b, bc); // Set boundary vertex positions
-//   igl::harmonic(_F, b, bc, 1, P); // Compute interior vertex positions
-
-//   return P;
-// }
 
 
 static PhysicsHook *hook = NULL;
@@ -132,34 +110,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-
-
-
-/**
- * Injectively map a disk-topology triangle mesh to the plane
- * and optimize the symmetric Dirichlet energy via projected Newton.
- */
-//   // View resulting parametrization
-//   igl::opengl::glfw::Viewer viewer;
-//   viewer.core().is_animating = true;
-//   viewer.data().set_mesh(P, F);
-//   viewer.core().camera_zoom = 2;
-//   viewer.data().show_lines = false;
-//   Eigen::MatrixXd N;
-//   igl::per_vertex_normals(V,F,N);
-//   viewer.data().set_colors( ((N.array()*0.5)+0.5).eval());
-//   viewer.callback_pre_draw = [&] (igl::opengl::glfw::Viewer& viewer)
-//   {
-//     if(redraw)
-//     {
-//       viewer.data().set_vertices(P);
-//       viewer.core().align_camera_center(P);
-//       viewer.core().camera_zoom = 2;
-//       {
-//         std::lock_guard<std::mutex> lock(m);
-//         redraw = false;
-//       }
-//     }
-//     return false;
-//   };
-//   viewer.launch();
