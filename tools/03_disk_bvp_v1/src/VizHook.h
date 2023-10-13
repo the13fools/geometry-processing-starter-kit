@@ -33,6 +33,7 @@ public:
 		// ImGui::InputFloat("dt scale", &dt_scale);
 
     ImGui::InputDouble("Smoothness Weight", &w_smooth);
+    ImGui::InputDouble("S Perp Weight", &w_s_perp);
     ImGui::InputDouble("Curl Weight", &w_curl);
     ImGui::InputDouble("Bound Weight", &w_bound);
 
@@ -41,8 +42,12 @@ public:
     virtual void initSimulation()
     {
 
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
+      
+
 
       cur_surf = Surface(V, F);
 
@@ -57,6 +62,7 @@ public:
 
       w_bound = 1e3; 
       w_smooth = 1e-5; 
+      w_s_perp = 0;
       w_curl = 1e5;
  
       polyscope::removeAllStructures();
@@ -94,9 +100,19 @@ public:
           Eigen::VectorXd v0 = V.row(F(i,0));
           Eigen::VectorXd v1 = V.row(F(i,1));
           Eigen::VectorXd v2 = V.row(F(i,2));
-          Eigen::VectorXd c = (( v0 + v1 + v2 ) / 3).normalized();
+          Eigen::VectorXd c = (( v0 + v1 + v2 ) / 3);
 
-          frames.row(i) = Eigen::Vector2d(c(1),-c(0));
+          if(std::sqrt(c.squaredNorm()) < .45)
+          {
+            bound_face_idx(i) = -1;
+          }
+          else
+          {
+            c.normalize();
+            frames.row(i) = Eigen::Vector2d(c(1),-c(0));
+          }
+
+          
           // std::cout << "i" << i << "bound_face_idx(i)" << bound_face_idx(i) << std::endl;
         }
 
@@ -138,12 +154,24 @@ public:
             Eigen::Vector2<T> targ = frames_orig.row(f_idx);
             return w_bound*(curr-targ).squaredNorm();
           }
+
+          if (bound_face_idx(f_idx) == -1)
+          {
+            return (T) 0;
+          }
          
 
 
           Eigen::Vector2<T> a = element.variables(cur_surf.data().faceNeighbors(f_idx, 0));
           Eigen::Vector2<T> b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
           Eigen::Vector2<T> c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
+
+          Eigen::Vector2<T> curr_normalized = curr.normalized();
+          Eigen::Vector2<T> curr_perp; // = curr_normalized;
+          curr_perp(0) = curr_normalized(1);
+          curr_perp(1) = -curr_normalized(0);
+
+          T s_perp_term = pow(a.dot(curr_perp),2) + pow(b.dot(curr_perp),2) + pow(c.dot(curr_perp), 2);
 
           T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
 
@@ -159,7 +187,7 @@ public:
           curl_term +=  pow(b.dot(eb) - curr.dot(eb),2);
           curl_term +=  pow(c.dot(ec) - curr.dot(ec),2);
 
-          return w_smooth*dirichlet_term + w_curl*curl_term;
+          return w_smooth*dirichlet_term + w_curl*curl_term + w_s_perp * s_perp_term;
           });
 
       // Assemble inital x vector from P matrix.
@@ -282,6 +310,7 @@ public:
   double w_bound;
   double w_smooth; 
   double w_curl;
+  double w_s_perp;
 
 
 
@@ -311,7 +340,7 @@ private:
 
   int max_iters = 5000;
   int cur_iter = 0;
-  double convergence_eps = 1e-2;
+  double convergence_eps = 1e-8;
 
   TinyAD::LinearSolver<double> solver;
   // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> cg_solver;
