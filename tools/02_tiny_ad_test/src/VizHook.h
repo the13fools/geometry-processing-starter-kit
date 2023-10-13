@@ -54,7 +54,9 @@ public:
 
       renderF = F; 
       polyscope::registerSurfaceMesh("cur state", renderP, renderF);
-      polyscope::getSurfaceMesh()->setEdgeWidth(.6);
+      polyscope::getSurfaceMesh()->edgeWidth = .6;
+
+    //   polyscope::getSurfaceMesh()->setEdgeWidth(.6);
       polyscope::view::resetCameraToHomeView();
 
       Eigen::MatrixXd N;

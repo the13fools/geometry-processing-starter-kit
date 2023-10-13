@@ -6,7 +6,6 @@
 	path = deps/libigl
 	url = https://github.com/libigl/libigl.git
 
-[submodule "deps/tinyad"]
-	path = deps/tinyad
+[submodule "deps/TinyAD"]
+	path = deps/TinyAD
 	url = https://github.com/patr-schm/TinyAD.git
-

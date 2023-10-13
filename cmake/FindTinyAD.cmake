@@ -14,13 +14,13 @@ find_path(TINYAD_INCLUDE_DIR TinyAD/Scalar.hh
         ${CMAKE_SOURCE_DIR}/../..
         ${CMAKE_SOURCE_DIR}/..
         ${CMAKE_SOURCE_DIR}
-        ${CMAKE_SOURCE_DIR}/tinyad
-        ${CMAKE_SOURCE_DIR}/../tinyad
-        ${CMAKE_SOURCE_DIR}/../tools/tinyad
-        ${CMAKE_SOURCE_DIR}/../../tinyad
+        ${CMAKE_SOURCE_DIR}/TinyAD
+        ${CMAKE_SOURCE_DIR}/../TinyAD
+        ${CMAKE_SOURCE_DIR}/../tools/TinyAD
+        ${CMAKE_SOURCE_DIR}/../../TinyAD
         /usr
         /usr/local
-        ${CMAKE_SOURCE_DIR}/deps/tinyad
+        ${CMAKE_SOURCE_DIR}/deps/TinyAD
     PATH_SUFFIXES include
 )
 

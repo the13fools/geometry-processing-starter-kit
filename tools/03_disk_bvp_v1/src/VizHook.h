@@ -32,6 +32,10 @@ public:
 		// ImGui::InputFloat("k scale", &k_scale);
 		// ImGui::InputFloat("dt scale", &dt_scale);
 
+    ImGui::InputDouble("Smoothness Weight", &w_smooth);
+    ImGui::InputDouble("Curl Weight", &w_curl);
+    ImGui::InputDouble("Bound Weight", &w_bound);
+
     }
 
     virtual void initSimulation()
@@ -50,6 +54,11 @@ public:
 
       cur_iter = 0; 
 
+
+      w_bound = 1e3; 
+      w_smooth = 1e-5; 
+      w_curl = 1e5;
+ 
       polyscope::removeAllStructures();
       // renderP.resize(P.rows(), 3);
       // renderP << P, Eigen::MatrixXd::Zero(P.rows(), 1);
@@ -58,7 +67,7 @@ public:
 
       polyscope::registerSurfaceMesh("cur state", renderP, renderF);
       // polyscope::getSurfaceMesh()->setEdgeWidth(.6);
-      // polyscope::getSurfaceMesh()->edgeWidth = .6;
+      polyscope::getSurfaceMesh()->edgeWidth = .6;
       polyscope::view::resetCameraToHomeView();
 
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
@@ -127,7 +136,7 @@ public:
           {
 
             Eigen::Vector2<T> targ = frames_orig.row(f_idx);
-            return 1000*(curr-targ).squaredNorm();
+            return w_bound*(curr-targ).squaredNorm();
           }
          
 
@@ -136,8 +145,21 @@ public:
           Eigen::Vector2<T> b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
           Eigen::Vector2<T> c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
 
+          T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
 
-          return (a + b + c - 3*curr).squaredNorm();
+          Eigen::Vector2i ea_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 0));
+          Eigen::Vector2i eb_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 1));
+          Eigen::Vector2i ec_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 2));
+
+          Eigen::Vector2<T> ea = (V.row(ea_idx(0)) - V.row(ea_idx(1))).head<2>();
+          Eigen::Vector2<T> eb = (V.row(eb_idx(0)) - V.row(eb_idx(1))).head<2>();
+          Eigen::Vector2<T> ec = (V.row(ec_idx(0)) - V.row(ec_idx(1))).head<2>();
+
+          T curl_term = pow(a.dot(ea) - curr.dot(ea),2);
+          curl_term +=  pow(b.dot(eb) - curr.dot(eb),2);
+          curl_term +=  pow(c.dot(ec) - curr.dot(ec),2);
+
+          return w_smooth*dirichlet_term + w_curl*curl_term;
           });
 
       // Assemble inital x vector from P matrix.
@@ -246,6 +268,8 @@ public:
         polyscope::getSurfaceMesh()->resetTransform();
         polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", renderFrames.rowwise().squaredNorm())->setEnabled(true);
         auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", renderFrames); //   ( ((N.array()*0.5)+0.5).eval());
+        vectors->vectorColor = glm::vec3(.7,.7,.7);
+        
         // vectors->setVectorLengthScale(1., true);
         vectors->setEnabled(true);
         // vectors->setVectorColor(glm::vec3(.7,.7,.7));
@@ -255,6 +279,11 @@ public:
 
 
 // static auto func;
+  double w_bound;
+  double w_smooth; 
+  double w_curl;
+
+
 
 private:
   // Read mesh and compute Tutte embedding
@@ -265,6 +294,7 @@ private:
   Eigen::MatrixXd frames_orig;
 
   Surface cur_surf;
+
 
   
   Eigen::VectorXi bound_face_idx; // the faces on the boundary, for now let tinyAD do the boundary enforcement 
