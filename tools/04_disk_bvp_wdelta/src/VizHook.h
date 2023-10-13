@@ -42,9 +42,9 @@ public:
     virtual void initSimulation()
     {
 
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       
 
@@ -77,6 +77,7 @@ public:
       polyscope::view::resetCameraToHomeView();
 
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
+      deltas = Eigen::MatrixXd::Zero(F.rows(), 2);
 
       // frames = Eigen::MatrixXd::Random(F.rows(), 2);
 
@@ -134,7 +135,7 @@ public:
 
 
       // Set up function with 2D vertex positions as variables.
-      func = TinyAD::scalar_function<2>(TinyAD::range(F.rows()));
+      func = TinyAD::scalar_function<4>(TinyAD::range(F.rows()));
 
       // Add objective term per face. Each connecting 3 vertices.
       func.add_elements<4>(TinyAD::range(F.rows()), [&] (auto& element) -> TINYAD_SCALAR_TYPE(element)
@@ -146,13 +147,15 @@ public:
 
           // Get variable 2D vertex positions
           Eigen::Index f_idx = element.handle;
-          Eigen::Vector2<T> curr = element.variables(f_idx);
+          Eigen::Vector4<T> s_curr = element.variables(f_idx);
+          Eigen::Vector2<T> curr =  s_curr.head(2);
+          Eigen::Vector2<T> delta = s_curr.tail(2);
           
           if (bound_face_idx(f_idx) == 1)
           {
 
             Eigen::Vector2<T> targ = frames_orig.row(f_idx);
-            return w_bound*(curr-targ).squaredNorm();
+            return w_bound*(curr-targ).squaredNorm() + w_bound*delta.squaredNorm();
           }
 
           if (bound_face_idx(f_idx) == -1)
@@ -162,9 +165,20 @@ public:
          
 
 
-          Eigen::Vector2<T> a = element.variables(cur_surf.data().faceNeighbors(f_idx, 0));
-          Eigen::Vector2<T> b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
-          Eigen::Vector2<T> c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
+          Eigen::Vector4<T> s_a = element.variables(cur_surf.data().faceNeighbors(f_idx, 0));
+          Eigen::Vector4<T> s_b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
+          Eigen::Vector4<T> s_c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
+
+          Eigen::Vector2<T> a = s_a.head(2);
+          Eigen::Vector2<T> b = s_b.head(2);
+          Eigen::Vector2<T> c = s_c.head(2);
+
+
+          Eigen::Vector2<T> a_delta = s_a.tail(2);
+          Eigen::Vector2<T> b_delta = s_b.tail(2);
+          Eigen::Vector2<T> c_delta = s_c.tail(2);
+
+
 
           Eigen::Vector2<T> curr_normalized = curr.normalized();
           Eigen::Vector2<T> curr_perp; // = curr_normalized;
@@ -175,6 +189,8 @@ public:
 
           T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
 
+          T delta_norm_term = delta.squaredNorm();
+
           Eigen::Vector2i ea_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector2i eb_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 1));
           Eigen::Vector2i ec_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 2));
@@ -183,50 +199,35 @@ public:
           Eigen::Vector2<T> eb = (V.row(eb_idx(0)) - V.row(eb_idx(1))).head<2>();
           Eigen::Vector2<T> ec = (V.row(ec_idx(0)) - V.row(ec_idx(1))).head<2>();
 
-          T curl_term = pow(a.dot(ea) - curr.dot(ea),2);
-          curl_term +=  pow(b.dot(eb) - curr.dot(eb),2);
-          curl_term +=  pow(c.dot(ec) - curr.dot(ec),2);
+          T curl_term = pow(ea.dot(a + a_delta) - ea.dot(curr + delta),2);
+          curl_term +=  pow(eb.dot(b + b_delta) - eb.dot(curr + delta),2);
+          curl_term +=  pow(ec.dot(c + c_delta) - ec.dot(curr + delta),2);
 
-          return w_smooth*dirichlet_term + w_curl*curl_term + w_s_perp * s_perp_term;
+          T atten = 1./(cur_iter + 1);
+
+          return (w_smooth*dirichlet_term + 
+                 w_s_perp * s_perp_term) * atten + 
+                 w_curl*curl_term  + 
+                 delta_norm_term;
           });
 
       // Assemble inital x vector from P matrix.
       // x_from_data(...) takes a lambda function that maps
       // each variable handle (vertex index) to its initial 2D value (Eigen::Vector2d).
         x = func.x_from_data([&] (int f_idx) {
-          return frames.row(f_idx);
+          Eigen::Vector4d ret;
+          // ret << frames.row(f_idx), deltas.row(f_idx);
+          return ret;
           });
 
     }
-
-    //     /**
-    //  * Compute tutte embedding with boundary on circle.
-    //  * Per-vertex 2D coordinates returned as n_vertices-by-2 matrix.
-    //  * 
-    //  * helper function
-    //  */
-    // Eigen::MatrixXd tutte_embedding(
-    //     const Eigen::MatrixXd& _V,
-    //     const Eigen::MatrixXi& _F)
-    // {
-    // Eigen::VectorXi b; // #constr boundary constraint indices
-    // Eigen::MatrixXd bc; // #constr-by-2 2D boundary constraint positions
-    // Eigen::MatrixXd P; // #V-by-2 2D vertex positions
-    // igl::boundary_loop(_F, b); // Identify boundary vertices
-    // igl::map_vertices_to_circle(_V, b, bc); // Set boundary vertex positions
-    // igl::harmonic(_F, b, bc, 1, P); // Compute interior vertex positions
-
-    // // P.resize(P.rows(),3);
-
-    // return P;
-    // }
 
 
     virtual void updateRenderGeometry()
     {
 
       renderFrames.resize(frames.rows(), 3);
-      renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+      renderFrames << frames + deltas, Eigen::MatrixXd::Zero(frames.rows(), 1);
 
     }
 
@@ -245,26 +246,11 @@ public:
             cur_iter = max_iters; // break
             x = TinyAD::line_search(x, d, f, g, func);
 
-/*
-
-
-            // Eigen::VectorXd d = cg_solver.compute(H_proj + 1e-8 * TinyAD::identity<double>(x.size())).solve(-g);
-            auto H_proj_reg = H_proj + 1e-4 * TinyAD::identity<double>(x.size());
-            Eigen::VectorXd d = cg_solver.compute(H_proj_reg).solve(-g);
-            if (TinyAD::newton_decrement(d, g) < convergence_eps)
-                cur_iter = max_iters;
-
-            x = TinyAD::line_search(x, d, f, g, func);
-            // // Eigen::VectorXd d = TinyAD::newton_direction(g, H_proj, solver);
-            // if (TinyAD::newton_decrement(d, g) < convergence_eps)
-            // cur_iter = max_iters; // break
-            // x = TinyAD::line_search(x, d, f, g, func);
-
-*/
 
             ///// Move this out 
-            func.x_to_data(x, [&] (int f_idx, const Eigen::Vector2d& v) {
-                frames.row(f_idx) = v;
+            func.x_to_data(x, [&] (int f_idx, const Eigen::Vector4d& v) {
+                frames.row(f_idx) = v.head<2>();
+                deltas.row(f_idx) = v.tail<2>();
                 // if (bound_face_idx(f_idx) == 1)
                 // {
                 //   frames.row(f_idx) = frames_orig.row(f_idx);
@@ -320,6 +306,7 @@ private:
   Eigen::MatrixXi F; // #F-by-3 indices into V
   Eigen::MatrixXd P; //  = tutte_embedding(V, F); // #V-by-2 2D vertex positions
   Eigen::MatrixXd frames;
+  Eigen::MatrixXd deltas;
   Eigen::MatrixXd frames_orig;
 
   Surface cur_surf;
@@ -335,7 +322,7 @@ private:
   
   std::vector<Eigen::Matrix2d> rest_shapes;
 
-  decltype(TinyAD::scalar_function<2>(TinyAD::range(1))) func;
+  decltype(TinyAD::scalar_function<4>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
   int max_iters = 5000;
