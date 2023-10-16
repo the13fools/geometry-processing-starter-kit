@@ -39,14 +39,55 @@ public:
 
     }
 
+// Helper fn
+    Eigen::Vector4d flatten(Eigen::Matrix2d r)
+    {
+      Eigen::Vector4d ret;
+      ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
+      return ret;
+    }
+
+
+    Eigen::Matrix4d rstar_from_r(Eigen::Matrix2d r)
+    {
+      Eigen::Matrix4d ret;
+      double a = r(0,0);
+      double b = r(0,1);
+      double c = r(1,0);
+      double d = r(1,1);
+      ret << a*a, a*b, a*b, b*b,
+             a*c, b*c, a*d, b*d,
+             a*c, b*c, a*d, b*d,
+             c*c, c*d, c*d, d*d;
+
+      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
+      return ret;
+    }
+
+
+    Eigen::Vector4d rstar_xcomp_from_r(Eigen::Matrix2d r)
+    {
+      Eigen::Vector4d ret;
+      double a = r(0,0);
+      double b = r(0,1);
+      double c = r(1,0);
+      double d = r(1,1);
+      ret << a*a, a*b, a*b, b*b;
+
+      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
+      return ret;
+    }
+
+
+
     virtual void initSimulation()
     {
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
-      
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
 
 
       cur_surf = Surface(V, F);
@@ -119,6 +160,29 @@ public:
 
       }
 
+      int nedges = cur_surf.nEdges();
+      std::vector<Eigen::Matrix2d> rots;// 
+      std::vector<Eigen::Matrix4d> rstars;
+      std::vector<Eigen::Vector4d> e_projs;
+
+      for (int i = 0; i < nedges; i++)
+      {
+
+        Eigen::Vector3d estart = V.row(cur_surf.data().edgeVerts(i,0));
+        Eigen::Vector3d eend = V.row(cur_surf.data().edgeVerts(i,1));
+        Eigen::Vector3d edge_dir = (eend - estart).normalized();
+        Eigen::Matrix2d e_to_x;
+        e_to_x << edge_dir(0),edge_dir(1),-edge_dir(1),edge_dir(0); // Note this rotates the edge into [1,0]
+        // std::cout << e_to_x * edge_dir.head(2) << std::endl<< std::endl; // sanity check.
+
+        rots.push_back(e_to_x);
+
+        Eigen::Vector4d e_proj = rstar_xcomp_from_r(e_to_x);
+        e_projs.push_back(e_proj);
+
+      }
+
+    std::cout << "blah" << std::endl;
 
       frames_orig = frames;
 
