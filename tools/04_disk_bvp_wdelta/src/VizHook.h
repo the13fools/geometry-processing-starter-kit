@@ -44,9 +44,10 @@ public:
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
-      
+            igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
+
 
 
       cur_surf = Surface(V, F);

@@ -20,10 +20,15 @@
 
 #include <igl/map_vertices_to_circle.h>
 
+enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
+
+
 class VizHook : public PhysicsHook
 {
 public:
-    VizHook() : PhysicsHook() {}
+    VizHook() : PhysicsHook() {
+      current_element = Field_View::vec_norms;
+    }
 
     virtual void drawGUI()
     {
@@ -36,6 +41,19 @@ public:
     ImGui::InputDouble("S Perp Weight", &w_s_perp);
     ImGui::InputDouble("Curl Weight", &w_curl);
     ImGui::InputDouble("Bound Weight", &w_bound);
+
+
+/// Whatever maybe make this a dropdown eventually 
+// From line 556 of imgui demo: https://skia.googlesource.com/external/github.com/ocornut/imgui/+/refs/tags/v1.73/imgui_demo.cpp
+            const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
+            const char* current_element_name = (current_element >= 0 && current_element < Field_View::Element_COUNT) ? element_names[current_element] : "Unknown";
+            ImGui::PushItemWidth(300);
+            ImGui::SliderInt("Shading Mode", (int *) &current_element, 0, Element_COUNT - 1, current_element_name);
+            ImGui::PopItemWidth();
+          
+          
+          
+            // ImGui::SameLine(); // ImGui::HelpMarker("Using the format string parameter to display a name instead of the underlying integer.");
 
     }
 
@@ -114,9 +132,12 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // w_curl = 1e5;
 
       w_bound = 1e4; 
-      w_smooth = 0; // 1e4; // 1e3; 
-      w_s_perp = 1; // 1e1 
-      w_curl = 1e3;
+      w_smooth = 1000; // 1e4; // 1e3; 
+      w_s_perp = 0; // 1e1 
+      w_curl = 1e6;
+      w_attenuate = 1.;
+
+      // current_element = Field_View::vec_dirch;
  
       polyscope::removeAllStructures();
       // renderP.resize(P.rows(), 3);
@@ -131,6 +152,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
       deltas = Eigen::MatrixXd::Zero(F.rows(), 4);
+      metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
+      curls = Eigen::VectorXd::Zero(F.rows());
 
       frames = Eigen::MatrixXd::Random(F.rows(), 2);
 
@@ -163,8 +186,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           else
           {
             c.normalize();
-            // frames.row(i) = Eigen::Vector2d(c(1),-c(0)); // circulation 
-            frames.row(i) = Eigen::Vector2d(c(0),c(1)); // diverging
+            frames.row(i) = Eigen::Vector2d(c(1),-c(0)); // circulation 
+            // frames.row(i) = Eigen::Vector2d(c(0),c(1)); // diverging
 
           }
 
@@ -185,6 +208,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       e_projs.clear();
 
       e_projs2.resize(nedges,4); 
+
+ 
 
       for (int i = 0; i < nedges; i++)
       {
@@ -240,7 +265,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::VectorX<T> s_curr = element.variables(f_idx);
           Eigen::Vector2<T> curr =  s_curr.head(2);
           Eigen::Vector4<T> delta = s_curr.tail(4);
-          
+
+          Eigen::Matrix2<T> currcurr = curr*curr.transpose();
+          Eigen::Vector4<T> currcurrt = flatten(currcurr);
+          // metadata field
+          // Eigen::Vector2<T> metadata = s_curr.segment(2, 2);
+
+
           if (bound_face_idx(f_idx) == 1)
           {
 
@@ -250,7 +281,22 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
           if (bound_face_idx(f_idx) == -1)
           {
-            return (T) 0;
+            T ret = w_bound*delta.squaredNorm();
+            for(int i = 0; i < 3; i++)
+            {
+              int neighbor_edge_idx = cur_surf.data().faceNeighbors(f_idx, i);
+              if(neighbor_edge_idx > -1)
+              {
+                Eigen::VectorX<T> s_n = element.variables(neighbor_edge_idx);
+                Eigen::Vector2<T> n_i = s_n.head(2);
+                // ret = ret + (n_i-curr).squaredNorm() * w_smooth;
+                Eigen::Matrix2<T> nini = n_i*n_i.transpose();
+                Eigen::Vector4<T> ninit = flatten(nini);
+                ret = ret + (ninit-currcurrt).squaredNorm() * w_smooth * w_attenuate;
+                // ret = ret + (n_i*n_i.transpose()-currcurr).norm() * w_smooth;
+              }
+            }
+            return ret;
           }
 
 
@@ -269,13 +315,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::Matrix2<T> bb = b*b.transpose();
           Eigen::Matrix2<T> cc = c*c.transpose();
 
-          Eigen::Matrix2<T> currcurr = curr*curr.transpose();
+
 
 
           Eigen::Vector4<T> aat = flatten(aa);
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
-          Eigen::Vector4<T> currcurrt = flatten(currcurr);
+
 
 
                     // return (T) 0.;
@@ -295,14 +341,19 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
           // T s_perp_term = pow(a.dot(curr_perp),2) + pow(b.dot(curr_perp),2) + pow(c.dot(curr_perp), 2);
 
-          T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (curr_perp * curr_perp.transpose())).norm();
+          // T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (curr_perp * curr_perp.transpose())).norm();
+          T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (currcurrt)).squaredNorm();
 
-
-          T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
+          // T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
+          T dirichlet_term = (aat+bbt+cct-3*currcurrt).squaredNorm();
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
+  // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
+
 
           T delta_norm_term = delta.squaredNorm();
+      
+          // metadata
 
           // // Eigen::Vector2i ea_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 0));
           // // Eigen::Vector2i eb_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -339,16 +390,22 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           curl_term +=  pow(eb.dot(bbt + b_delta) - eb.dot(currcurrt + delta),2);
           curl_term +=  pow(ec.dot(cct + c_delta) - ec.dot(currcurrt + delta),2);
 
+          curls(f_idx) = TinyAD::to_passive(curl_term);
+
+          // curl_term += 1e-5*abs(curl_term - metadata(1));
+
 
           // T atten = 1./(cur_iter*cur_iter + 1);
-          T atten = 1./(cur_iter + 1);
+          // T atten = 1./(cur_iter + 1);
 
           // T atten = 1.;
 
+          T delta_weight = std::min(w_curl/100., 1./w_attenuate);
+
 return (w_smooth * dirichlet_term + 
-                  w_s_perp * s_perp_term) * atten + 
+                  w_s_perp * s_perp_term) * w_attenuate + 
                   w_curl*curl_term  + 
-                 delta_norm_term;
+                 delta_norm_term * delta_weight;
 
           // return (w_smooth * dirichlet_term + 
           //         w_s_perp * s_perp_term) * atten + 
@@ -363,8 +420,8 @@ return (w_smooth * dirichlet_term +
       // each variable handle (vertex index) to its initial 2D value (Eigen::Vector2d).
         x = func.x_from_data([&] (int f_idx) {
           Eigen::VectorXd ret;
-          ret.resize(6);
-          ret.head(2) = Eigen::VectorXd::Random(2);
+          ret = Eigen::VectorXd::Zero(6); // resize(10);
+          // ret.head(2) = Eigen::VectorXd::Random(2);
           // ret << frames.row(f_idx), deltas.row(f_idx);
           return ret;
           });
@@ -377,6 +434,14 @@ return (w_smooth * dirichlet_term +
 
       renderFrames.resize(frames.rows(), 3);
       renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+
+      renderDeltas = deltas;
+
+      // sym_curl.resize(frames.rows());
+      sym_curl = curls;
+
+      // vec_smoothness.resize(frames.rows());
+      vec_smoothness = metadata.col(1);
 
     }
 
@@ -392,13 +457,20 @@ return (w_smooth * dirichlet_term +
 
             Eigen::VectorXd d = TinyAD::newton_direction(g, H_proj, solver);
             if (TinyAD::newton_decrement(d, g) < convergence_eps)
-            cur_iter = max_iters; // break
-            x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-8);
+            {
+              w_attenuate = w_attenuate / 10.;
+              std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
+              if (w_attenuate < 1e-10)
+                 cur_iter = max_iters;
+            }
+            // cur_iter = max_iters; // break
+            x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-6);
 
 
             ///// Move this out 
             func.x_to_data(x, [&] (int f_idx, const Eigen::VectorXd& v) {
                 frames.row(f_idx) = v.head<2>();
+                // metadata.row(f_idx) = v.segment(2, 2);
                 deltas.row(f_idx) = v.tail<4>();
                 // if (bound_face_idx(f_idx) == 1)
                 // {
@@ -423,13 +495,53 @@ return (w_smooth * dirichlet_term +
         return false;
     }
 
+
+// Need to fill out viewer for each of: Field_View { vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual,
     virtual void renderRenderGeometry()
     {
 		polyscope::getSurfaceMesh()->updateVertexPositions(renderP);
         
         polyscope::getSurfaceMesh()->centerBoundingBox();
         polyscope::getSurfaceMesh()->resetTransform();
-        polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", renderFrames.rowwise().squaredNorm())->setEnabled(true);
+
+        switch (current_element) 
+        { 
+            case Field_View::vec_norms:
+                { 
+                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", renderFrames.rowwise().squaredNorm())->setEnabled(true);
+                } 
+                break;
+
+            case Field_View::delta_norms:
+                { 
+                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", renderDeltas.rowwise().squaredNorm())->setEnabled(true);
+                } 
+                break; 
+              
+            case Field_View::primal_curl_residual: 
+                { 
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", renderFrames.rowwise().norm())->setEnabled(true);
+                } 
+                break;             
+            case Field_View::sym_curl_residual: 
+                { 
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", sym_curl)->setEnabled(true);
+                } 
+                break;           
+            case Field_View::vec_dirch: 
+                { 
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vec_smoothness)->setEnabled(true);
+                } 
+                break; 
+
+            default: 
+                { 
+                    // std::cout << "Unknown color!"; 
+                } 
+                break; 
+        } 
+      
+  
         auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", renderFrames); //   ( ((N.array()*0.5)+0.5).eval());
         vectors->vectorColor = glm::vec3(.7,.7,.7);
         
@@ -447,6 +559,8 @@ return (w_smooth * dirichlet_term +
   double w_curl;
   double w_s_perp;
 
+  double w_attenuate;
+
 
 
 private:
@@ -456,7 +570,10 @@ private:
   Eigen::MatrixXd P; //  = tutte_embedding(V, F); // #V-by-2 2D vertex positions
   Eigen::MatrixXd frames;
   Eigen::MatrixXd deltas;
+    Eigen::MatrixXd metadata;
   Eigen::MatrixXd frames_orig;
+
+  Eigen::VectorXd curls; 
 
   Surface cur_surf;
 
@@ -472,18 +589,29 @@ private:
   Eigen::VectorXi bound_face_idx; // the faces on the boundary, for now let tinyAD do the boundary enforcement 
 
   Eigen::MatrixXd renderFrames;
+  Eigen::MatrixXd renderDeltas;
   Eigen::MatrixXd renderP;
   Eigen::MatrixXi renderF;
+  Field_View current_element;
+
+  Eigen::VectorXd vec_curl;
+  Eigen::VectorXd sym_curl;
+  Eigen::VectorXd vec_norms;
+  Eigen::VectorXd delta_norms;
+  Eigen::VectorXd vec_smoothness;
+  Eigen::VectorXd moment_smoothness;
+  // Eigen::VectorXd moment_smoothness;
+
 
   
   std::vector<Eigen::Matrix2d> rest_shapes;
-
+// %%% 2 + 4 + 4
   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
   int max_iters = 5000;
   int cur_iter = 0;
-  double convergence_eps = 1e-8;
+  double convergence_eps = 1e-10;
 
   TinyAD::LinearSolver<double> solver;
   // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> cg_solver;
