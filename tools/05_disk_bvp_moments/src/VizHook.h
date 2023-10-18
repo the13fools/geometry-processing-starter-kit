@@ -57,13 +57,6 @@ public:
 
     }
 
-// Helper fn
-    // Eigen::Vector4<TinyAD::Scalar<24, double, true>> flatten(Eigen::Matrix2<TinyAD::Scalar<24, double, true>> r)
-    // {
-    //   Eigen::Vector4<TinyAD::Scalar<24, double, true>> ret;
-    //   ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
-    //   return ret;
-    // }
 
 template <typename ScalarType, int Rows, int Cols>
 Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType, Rows, Cols>& matrix) {
@@ -109,11 +102,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     {
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
 
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
+// 
 
       cur_surf = Surface(V, F);
 
@@ -132,9 +127,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // w_curl = 1e5;
 
       w_bound = 1e4; 
-      w_smooth = 1000; // 1e4; // 1e3; 
+      w_smooth = 10000; // 1e4; // 1e3; 
       w_s_perp = 0; // 1e1 
-      w_curl = 1e6;
+      w_curl = 1e3;
       w_attenuate = 1.;
 
       // current_element = Field_View::vec_dirch;
@@ -198,11 +193,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       }
 
       int nedges = cur_surf.nEdges();
-      // std::vector<Eigen::Matrix2d> rots;// 
-      // std::vector<Eigen::Matrix4d> rstars;
-      // std::vector<Eigen::Vector4d> e_projs;
 
-      // Eigen::MatrixXd e_projs2;
       rots.clear();// 
       rstars.clear();
       e_projs.clear();
@@ -352,31 +343,6 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
 
           T delta_norm_term = delta.squaredNorm();
-      
-          // metadata
-
-          // // Eigen::Vector2i ea_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 0));
-          // // Eigen::Vector2i eb_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 1));
-          // // Eigen::Vector2i ec_idx = cur_surf.data().edgeVerts.row(cur_surf.data().faceEdges(f_idx, 2));
-
-          // // Eigen::Vector2<T> ea = (V.row(ea_idx(0)) - V.row(ea_idx(1))).head<2>();
-          // // Eigen::Vector2<T> eb = (V.row(eb_idx(0)) - V.row(eb_idx(1))).head<2>();
-          // // Eigen::Vector2<T> ec = (V.row(ec_idx(0)) - V.row(ec_idx(1))).head<2>();
-
-          // // T curl_term = pow(ea.dot(a + a_delta) - ea.dot(curr + delta),2);
-          // // curl_term +=  pow(eb.dot(b + b_delta) - eb.dot(curr + delta),2);
-          // // curl_term +=  pow(ec.dot(c + c_delta) - ec.dot(curr + delta),2);
-
-
-
-          // // Eigen::Vector4<T> ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
-          // // Eigen::Vector4<T> eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
-          // // Eigen::Vector4<T> ec = e_projs2.row(cur_surf.data().faceEdges(f_idx, 2));
-          // // int tmp = cur_surf.data().faceEdges(f_idx, 0);
-          // // std::cout << "target row" << e_projs.at(tmp) << std::endl<< std::endl;
-
-          // // std::cout << "row contents" << e_projs2.row(tmp) << std::endl;
-
 
           Eigen::Vector4d ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector4d eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -460,11 +426,11 @@ return (w_smooth * dirichlet_term +
             {
               w_attenuate = w_attenuate / 10.;
               std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
-              if (w_attenuate < 1e-10)
+              if (w_attenuate < 1e-12)
                  cur_iter = max_iters;
             }
             // cur_iter = max_iters; // break
-            x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-6);
+            x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-3);
 
 
             ///// Move this out 
