@@ -101,12 +101,12 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     virtual void initSimulation()
     {
 
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
 // 
 
@@ -126,7 +126,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // w_s_perp = 0;
       // w_curl = 1e5;
 
-      w_bound = 1e4; 
+      w_bound = 1e5; 
       w_smooth = 10000; // 1e4; // 1e3; 
       w_s_perp = 0; // 1e1 
       w_curl = 1e3;
@@ -368,10 +368,20 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
           T delta_weight = std::min(w_curl/100., 1./w_attenuate);
 
-return (w_smooth * dirichlet_term + 
-                  w_s_perp * s_perp_term) * w_attenuate + 
-                  w_curl*curl_term  + 
-                 delta_norm_term * delta_weight;
+          T ret = delta_norm_term * delta_weight;
+          if (w_smooth > 0)
+            ret = ret + w_attenuate * w_smooth * dirichlet_term;
+          if (w_s_perp > 0)
+            ret = ret + w_attenuate * w_s_perp * s_perp_term;
+          if (w_curl > 0)
+            ret = ret + w_curl * curl_term;
+
+          return ret;
+
+// (w_smooth * dirichlet_term + 
+//                   w_s_perp * s_perp_term) *  + 
+//                   w_curl*curl_term  + 
+//                  delta_norm_term * delta_weight;
 
           // return (w_smooth * dirichlet_term + 
           //         w_s_perp * s_perp_term) * atten + 
@@ -387,7 +397,7 @@ return (w_smooth * dirichlet_term +
         x = func.x_from_data([&] (int f_idx) {
           Eigen::VectorXd ret;
           ret = Eigen::VectorXd::Zero(6); // resize(10);
-          // ret.head(2) = Eigen::VectorXd::Random(2);
+          ret.head(2) = Eigen::VectorXd::Random(2);
           // ret << frames.row(f_idx), deltas.row(f_idx);
           return ret;
           });
