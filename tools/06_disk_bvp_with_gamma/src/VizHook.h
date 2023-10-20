@@ -20,6 +20,8 @@
 
 #include <igl/map_vertices_to_circle.h>
 
+#include <UtilsMisc.h>
+
 enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
 
 
@@ -276,7 +278,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::Vector4<T> delta = s_curr.tail(4);
           // Eigen::Vector2<T> gamma = s_curr.segment(2, 2);
 
-          Eigen::Vector2<T> curr = frames.row(f_idx) + s_curr.segment(2, 2);
+
+          Eigen::Vector2<T> primal = frames.row(f_idx);
+          Eigen::Vector2<T> curr = primal + s_curr.segment(2, 2);
           
           Eigen::Matrix2<T> currcurr = curr*curr.transpose();
           Eigen::Vector4<T> currcurrt = flatten(currcurr);
@@ -320,11 +324,17 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::VectorX<T> s_b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
           Eigen::VectorX<T> s_c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
 
+          Eigen::Vector2<T> s_a_gamma = s_a.segment(2, 2);
+          Eigen::Vector2<T> s_b_gamma = s_b.segment(2, 2);
+          Eigen::Vector2<T> s_c_gamma = s_c.segment(2, 2);
 
+          Eigen::Vector2<T> a = frames.row(cur_surf.data().faceNeighbors(f_idx, 0));
+          Eigen::Vector2<T> b = frames.row(cur_surf.data().faceNeighbors(f_idx, 1));
+          Eigen::Vector2<T> c = frames.row(cur_surf.data().faceNeighbors(f_idx, 2));
 
-          Eigen::Vector2<T> a = frames.row(cur_surf.data().faceNeighbors(f_idx, 0)) + s_a.segment(2, 2);
-          Eigen::Vector2<T> b = frames.row(cur_surf.data().faceNeighbors(f_idx, 1)) + s_b.segment(2, 2);
-          Eigen::Vector2<T> c = frames.row(cur_surf.data().faceNeighbors(f_idx, 2)) + s_c.segment(2, 2);
+          a = a + s_a_gamma;
+          b = b + s_b_gamma;
+          c = c + s_c_gamma;
 
           Eigen::Matrix2<T> aa = a*a.transpose();
           Eigen::Matrix2<T> bb = b*b.transpose();
@@ -484,12 +494,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             int nrows = frames.rows();
             for(int i = 0; i < nrows; i++)
             {
-              // Eigen::Vector2d v_curr = frames.row(i);
-              Eigen::Vector2d v_curr = gammas.row(i);
+              Eigen::Vector2d v_curr = frames.row(i);
+              // Eigen::Vector2d v_curr = gammas.row(i);
               Eigen::Matrix2d vtv_curr = v_curr*v_curr.transpose();
               Eigen::Matrix2d p_curr = vtv_curr;
               Eigen::VectorXd gamma_curr = jacobians.at(i)*gammas.row(i).transpose() * 0;
-              Eigen::VectorXd delta_curr = deltas.row(i) * 0;
+
+              Eigen::VectorXd delta_curr = deltas.row(i);
               
               p_curr(0,0) = p_curr(0,0) + gamma_curr(0) + delta_curr(0);
               p_curr(0,1) = p_curr(0,1) + gamma_curr(1) + delta_curr(0);
@@ -497,13 +508,45 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
               p_curr(1,1) = p_curr(0,0) + gamma_curr(3) + delta_curr(0);
               // Eigen::Map<Eigen::Matrix2d> gamma_curr(gammas.row(i), 2,2);
               // Eigen::Matrix2d p_curr = v_curr*v_curr.transpose() + 
-              Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 2, 2>> eigen_solver(p_curr);
-              Eigen::Vector<double, 2> eigenvalues = eigen_solver.eigenvalues().reverse(); // values are OK
-              Eigen::Matrix<double, 2, 2> eigenvectors = eigen_solver.eigenvectors().transpose().colwise().reverse();
-              std::cout << "eigenvectors:\n" << eigenvectors.matrix() << "\n";
-              std::cout << "eigenvectors:\n" << eigenvalues.matrix() << "\n";
 
-              frames.row(i) = frames.row(i) + v_curr; // eigenvectors.row(0)*eigenvalues(0);
+Svd2x2Helper(p_curr);
+// Eigen::JacobiSVD<Eigen::Matrix2d> svd(p_curr,Eigen::ComputeFullU | Eigen::ComputeFullV);
+// std::cout << "Its singular values are:" << std::endl << svd.singularValues() << std::endl;
+// // std::cout << "Its left singular vectors are the columns of the thin U matrix:" << std::endl << svd.matrixU() << std::endl;
+// std::cout << "Its right singular vectors are the columns of the thin V matrix:" << std::endl << svd.matrixV() << std::endl;
+std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
+
+// Vector3f rhs(1, 0, 0);
+// cout << "Now consider this rhs vector:" << endl << rhs << endl;
+// cout << "A least-squares solution of m*x = rhs is:" << endl << svd.solve(rhs) << endl;
+
+
+
+              // Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 2, 2>> eigen_solver(p_curr);
+              // Eigen::Vector<double, 2> eigenvalues = eigen_solver.eigenvalues().reverse(); // values are OK
+              // Eigen::Matrix<double, 2, 2> eigenvectors = eigen_solver.eigenvectors().transpose().colwise().reverse();
+              // std::cout << "eigenvectors:\n" << eigenvectors.matrix() << "\n";
+              // std::cout << "eigenvectors:\n" << eigenvalues.matrix() << "\n";
+              // std::cout << "vtv_curr:\n" << p_curr << "\n";
+
+
+// Eigen::Vector2d v_curr = frames.row(i);
+              Eigen::Vector2d gamma_debug = gammas.row(i);
+
+              Eigen::Vector2d curr_row = frames.row(i);
+              curr_row = v_curr + gamma_debug;
+              frames.row(i) = curr_row; // eigenvectors.row(0)*eigenvalues(0);
+
+              // x = x*0;
+              x = func.x_from_data([&] (int f_idx) {
+                Eigen::VectorXd ret;
+                ret = Eigen::VectorXd::Zero(8); // resize(10);
+                ret.tail(4) = deltas.row(f_idx);
+                // ret.head(4) = Eigen::VectorXd::Random(4);
+                // ret << frames.row(f_idx), deltas.row(f_idx);
+                return ret;
+              });
+              
 
             }
 

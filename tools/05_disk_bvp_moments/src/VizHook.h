@@ -20,6 +20,9 @@
 
 #include <igl/map_vertices_to_circle.h>
 
+
+#include <chrono>
+
 enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
 
 
@@ -101,9 +104,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     virtual void initSimulation()
     {
 
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
@@ -119,18 +122,18 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // std::cout << "v size " <<  V.size() << " f size " << F.size() << " p size " << P.size() <<std::endl;
 
       cur_iter = 0; 
-
+      inner_loop_iter = 0;
 
       // w_bound = 1e3; 
       // w_smooth = 1e-5; 
       // w_s_perp = 0;
       // w_curl = 1e5;
 
-      w_bound = 1e5; 
-      w_smooth = 10000; // 1e4; // 1e3; 
+      w_bound = 1e6; 
+      w_smooth = 1e3; // 1e4; // 1e3; 
       w_s_perp = 0; // 1e1 
       w_curl = 1e3;
-      w_attenuate = 1.;
+      w_attenuate = 1e2;
 
       // current_element = Field_View::vec_dirch;
  
@@ -427,15 +430,25 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         if (cur_iter < max_iters)
         {
             cur_iter++;
+            inner_loop_iter++;
+
+
+            auto t1 = std::chrono::high_resolution_clock::now();
+
 
             auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
             TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
+            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
+
+            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros()<<std::endl;
 
             Eigen::VectorXd d = TinyAD::newton_direction(g, H_proj, solver);
-            if (TinyAD::newton_decrement(d, g) < convergence_eps)
+            double dec = TinyAD::newton_decrement(d, g);
+            if (dec < convergence_eps || (inner_loop_iter > 100 && dec / f < 1e-4))
             {
               w_attenuate = w_attenuate / 10.;
               std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
+              inner_loop_iter = 0;
               if (w_attenuate < 1e-12)
                  cur_iter = max_iters;
             }
@@ -454,7 +467,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
                 // }
                 });
 
-
+            auto t2 = std::chrono::high_resolution_clock::now();
+            auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+            std::cout << ms_int.count() << "ms\n";
 
         }
         else if (cur_iter == max_iters) 
@@ -587,6 +602,7 @@ private:
 
   int max_iters = 5000;
   int cur_iter = 0;
+  int inner_loop_iter = 0;
   double convergence_eps = 1e-10;
 
   TinyAD::LinearSolver<double> solver;
