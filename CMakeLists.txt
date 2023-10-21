@@ -88,6 +88,13 @@ add_subdirectory("deps/polyscope")
 
 
 # file(GLOB SRCFILES src/*.cpp)
+# find_package (SuiteSparse 5.12 NO_MODULE)
+message("build with suite-sparse")
+find_package(SuiteSparse REQUIRED)
+include_directories(${SUITESPARSE_INCLUDE_DIRS})
+
+
+
 find_package(TinyAD REQUIRED)
 find_package(libigl REQUIRED)
 # include(libigl)
@@ -95,7 +102,7 @@ file(GLOB SRCFILES src/*.cpp src/*.h src/*.hpp)
 
 add_library(${PROJECT_NAME} ${SRCFILES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} igl::core)
+target_link_libraries(${PROJECT_NAME} igl::core ${SUITESPARSE_LIBRARIES})
 
 set_target_properties(starter-kit PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)

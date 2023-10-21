@@ -67,6 +67,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     return flattened;
 }
 
+template <typename ScalarType>
+Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matrix) {
+    Eigen::Matrix<ScalarType, 2,2> folded;
+    folded << matrix(0), matrix(1), matrix(2), matrix(3);
+    return folded;
+}
+
 
     Eigen::Matrix4d rstar_from_r(Eigen::Matrix2d r)
     {
@@ -164,7 +171,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
       deltas = Eigen::MatrixXd::Zero(F.rows(), 4);
-      gammas = Eigen::MatrixXd::Zero(F.rows(), 2);
+      gammas = Eigen::MatrixXd::Zero(F.rows(), 4);
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
       curls = Eigen::VectorXd::Zero(F.rows());
 
@@ -278,9 +285,11 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::Vector4<T> delta = s_curr.tail(4);
           // Eigen::Vector2<T> gamma = s_curr.segment(2, 2);
 
+          Eigen::Vector4<T> gamma = s_curr.head(4);
+          Eigen::Matrix2<T> gamma_folded = fold(gamma);
 
           Eigen::Vector2<T> primal = frames.row(f_idx);
-          Eigen::Vector2<T> curr = primal + s_curr.segment(2, 2);
+          Eigen::Vector2<T> curr = primal;// + s_curr.segment(2, 2);
           
           Eigen::Matrix2<T> currcurr = curr*curr.transpose();
           Eigen::Vector4<T> currcurrt = flatten(currcurr);
@@ -290,11 +299,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           // Eigen::Vector2<T> metadata = s_curr.segment(2, 2);
 
 
-                                                                                                                                                    if (bound_face_idx(f_idx) == 1)
+          if (bound_face_idx(f_idx) == 1)
           {
 
             Eigen::Vector2<T> targ = frames_orig.row(f_idx);
-            return w_bound*(curr-targ).squaredNorm() + w_bound*delta.squaredNorm();
+            Eigen::Matrix2<T> targtarg = targ*targ.transpose();
+            Eigen::Vector4<T> targtargt = flatten(targtarg);
+            return w_bound*(currcurrt+gamma-targtargt).squaredNorm() + w_bound*delta.squaredNorm();
           }
 
           if (bound_face_idx(f_idx) == -1)
@@ -311,7 +322,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
                 Eigen::Vector2<T> n_i = frames.row(neighbor_edge_idx);
                 Eigen::Matrix2<T> nini = n_i*n_i.transpose();
                 Eigen::Vector4<T> ninit = flatten(nini);
-                ret = ret + (ninit-currcurrt).squaredNorm() * w_smooth * w_attenuate;
+                ret = ret + (currcurrt+gamma-ninit).squaredNorm() * w_smooth * w_attenuate;
                 // ret = ret + (n_i*n_i.transpose()-currcurr).norm() * w_smooth;
               }
             }
@@ -324,17 +335,17 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::VectorX<T> s_b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
           Eigen::VectorX<T> s_c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
 
-          Eigen::Vector2<T> s_a_gamma = s_a.segment(2, 2);
-          Eigen::Vector2<T> s_b_gamma = s_b.segment(2, 2);
-          Eigen::Vector2<T> s_c_gamma = s_c.segment(2, 2);
+          // Eigen::Vector2<T> s_a_gamma = s_a.segment(2, 2);
+          // Eigen::Vector2<T> s_b_gamma = s_b.segment(2, 2);
+          // Eigen::Vector2<T> s_c_gamma = s_c.segment(2, 2);
 
           Eigen::Vector2<T> a = frames.row(cur_surf.data().faceNeighbors(f_idx, 0));
           Eigen::Vector2<T> b = frames.row(cur_surf.data().faceNeighbors(f_idx, 1));
           Eigen::Vector2<T> c = frames.row(cur_surf.data().faceNeighbors(f_idx, 2));
 
-          a = a + s_a_gamma;
-          b = b + s_b_gamma;
-          c = c + s_c_gamma;
+          // a = a + s_a_gamma;
+          // b = b + s_b_gamma;
+          // c = c + s_c_gamma;
 
           Eigen::Matrix2<T> aa = a*a.transpose();
           Eigen::Matrix2<T> bb = b*b.transpose();
@@ -346,6 +357,14 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::Vector4<T> aat = flatten(aa);
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
+
+          Eigen::Vector4<T> s_a_gamma = s_a.head(4);
+          Eigen::Vector4<T> s_b_gamma = s_b.head(4);
+          Eigen::Vector4<T> s_c_gamma = s_c.head(4);
+
+          aat = aat + s_a_gamma;
+          bbt = bbt + s_b_gamma;
+          cct = cct + s_c_gamma;
 
 
 
@@ -482,7 +501,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             func.x_to_data(x, [&] (int f_idx, const Eigen::VectorXd& v) {
                 // frames.row(f_idx) = v.head<2>();
                 // metadata.row(f_idx) = v.segment(2, 2);
-                gammas.row(f_idx) = v.segment(2, 2);
+                // gammas.row(f_idx) = v.segment(2, 2);
+                gammas.row(f_idx) = v.head<4>();
+
                 deltas.row(f_idx) = v.tail<4>();
                 // if (bound_face_idx(f_idx) == 1)
                 // {
@@ -498,23 +519,47 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
               // Eigen::Vector2d v_curr = gammas.row(i);
               Eigen::Matrix2d vtv_curr = v_curr*v_curr.transpose();
               Eigen::Matrix2d p_curr = vtv_curr;
-              Eigen::VectorXd gamma_curr = jacobians.at(i)*gammas.row(i).transpose() * 0;
+              // Eigen::VectorXd gamma_curr = jacobians.at(i)*gammas.row(i).transpose();
+              Eigen::VectorXd gamma_curr = gammas.row(i);
+
 
               Eigen::VectorXd delta_curr = deltas.row(i);
               
-              p_curr(0,0) = p_curr(0,0) + gamma_curr(0) + delta_curr(0);
-              p_curr(0,1) = p_curr(0,1) + gamma_curr(1) + delta_curr(0);
-              p_curr(1,0) = p_curr(1,0) + gamma_curr(2) + delta_curr(0);
-              p_curr(1,1) = p_curr(0,0) + gamma_curr(3) + delta_curr(0);
-              // Eigen::Map<Eigen::Matrix2d> gamma_curr(gammas.row(i), 2,2);
+              p_curr(0,0) = p_curr(0,0) + gamma_curr(0);// + delta_curr(0);
+              p_curr(0,1) = p_curr(0,1) + gamma_curr(1);// + delta_curr(0);
+              p_curr(1,0) = p_curr(1,0) + gamma_curr(2);// + delta_curr(0);
+              p_curr(1,1) = p_curr(0,0) + gamma_curr(3);// + delta_curr(0);
+
+              std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
+
+              GN_proj_to_rank_1(p_curr, v_curr);
+              frames.row(i) = v_curr;
+
+
+
+              // x = x*0;
+              x = func.x_from_data([&] (int f_idx) {
+                Eigen::VectorXd ret;
+                ret = Eigen::VectorXd::Zero(8); // resize(10);
+                ret.tail(4) = deltas.row(f_idx);
+                // ret.head(4) = Eigen::VectorXd::Random(4);
+                // ret << frames.row(f_idx), deltas.row(f_idx);
+                return ret;
+              });
+              
+
+            }
+            updateJacobians(frames, jacobians);
+
+
+                          // Eigen::Map<Eigen::Matrix2d> gamma_curr(gammas.row(i), 2,2);
               // Eigen::Matrix2d p_curr = v_curr*v_curr.transpose() + 
 
-Svd2x2Helper(p_curr);
+// Svd2x2Helper(p_curr);
 // Eigen::JacobiSVD<Eigen::Matrix2d> svd(p_curr,Eigen::ComputeFullU | Eigen::ComputeFullV);
 // std::cout << "Its singular values are:" << std::endl << svd.singularValues() << std::endl;
 // // std::cout << "Its left singular vectors are the columns of the thin U matrix:" << std::endl << svd.matrixU() << std::endl;
 // std::cout << "Its right singular vectors are the columns of the thin V matrix:" << std::endl << svd.matrixV() << std::endl;
-std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
 
 // Vector3f rhs(1, 0, 0);
 // cout << "Now consider this rhs vector:" << endl << rhs << endl;
@@ -531,24 +576,11 @@ std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_cu
 
 
 // Eigen::Vector2d v_curr = frames.row(i);
-              Eigen::Vector2d gamma_debug = gammas.row(i);
+              // Eigen::Vector2d gamma_debug = gammas.row(i);
 
-              Eigen::Vector2d curr_row = frames.row(i);
-              curr_row = v_curr + gamma_debug;
-              frames.row(i) = curr_row; // eigenvectors.row(0)*eigenvalues(0);
-
-              // x = x*0;
-              x = func.x_from_data([&] (int f_idx) {
-                Eigen::VectorXd ret;
-                ret = Eigen::VectorXd::Zero(8); // resize(10);
-                ret.tail(4) = deltas.row(f_idx);
-                // ret.head(4) = Eigen::VectorXd::Random(4);
-                // ret << frames.row(f_idx), deltas.row(f_idx);
-                return ret;
-              });
-              
-
-            }
+              // Eigen::Vector2d curr_row = frames.row(i);
+              // curr_row = v_curr + gamma_debug;
+              // frames.row(i) = curr_row; // eigenvectors.row(0)*eigenvalues(0);
 
             // updateJacobians(frames, jacobians);
 
