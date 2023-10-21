@@ -142,6 +142,10 @@ void GN_proj_to_rank_1(Eigen::Matrix2d p, Eigen::Vector2d& v)
         }
 
         std::cout << v.transpose() << std::endl;
+        if(v.norm() < 1e-4)
+        {
+            v = Eigen::Vector2d::Random();
+        }
 }
 
 

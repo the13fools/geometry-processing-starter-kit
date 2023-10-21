@@ -151,9 +151,9 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
       // w_curl = 1e5;
 
       w_bound = 1e5; 
-      w_smooth = 10000; // 1e4; // 1e3; 
+      w_smooth = 1; // 10000; // 1e4; // 1e3; 
       w_s_perp = 0; // 1e1 
-      w_curl = 1e3;
+      w_curl = 0; // 1e3;
       w_attenuate = 1.;
 
       // current_element = Field_View::vec_dirch;
@@ -292,7 +292,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
           Eigen::Vector2<T> curr = primal;// + s_curr.segment(2, 2);
           
           Eigen::Matrix2<T> currcurr = curr*curr.transpose();
-          Eigen::Vector4<T> currcurrt = flatten(currcurr);
+          Eigen::Vector4<T> currcurrt = flatten(currcurr) + gamma;
           
           
           // metadata field
@@ -305,12 +305,12 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
             Eigen::Vector2<T> targ = frames_orig.row(f_idx);
             Eigen::Matrix2<T> targtarg = targ*targ.transpose();
             Eigen::Vector4<T> targtargt = flatten(targtarg);
-            return w_bound*(currcurrt+gamma-targtargt).squaredNorm() + w_bound*delta.squaredNorm();
+            return w_bound*(currcurrt-targtargt).squaredNorm() + w_bound*delta.squaredNorm();
           }
 
           if (bound_face_idx(f_idx) == -1)
           {
-            T ret = w_bound*delta.squaredNorm();
+            T ret = w_bound*(delta.squaredNorm() + gamma.squaredNorm());
             for(int i = 0; i < 3; i++)
             {
               int neighbor_edge_idx = cur_surf.data().faceNeighbors(f_idx, i);
@@ -322,7 +322,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
                 Eigen::Vector2<T> n_i = frames.row(neighbor_edge_idx);
                 Eigen::Matrix2<T> nini = n_i*n_i.transpose();
                 Eigen::Vector4<T> ninit = flatten(nini);
-                ret = ret + (currcurrt+gamma-ninit).squaredNorm() * w_smooth * w_attenuate;
+                ret = ret + (currcurrt-ninit).squaredNorm() * w_smooth * w_attenuate;
                 // ret = ret + (n_i*n_i.transpose()-currcurr).norm() * w_smooth;
               }
             }
@@ -396,6 +396,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
 
           T delta_norm_term = delta.squaredNorm();
+          T gamma_norm_term = gamma.squaredNorm();
 
           Eigen::Vector4d ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector4d eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -421,7 +422,8 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
           T delta_weight = std::min(w_curl/100., 1./w_attenuate);
 
-          T ret = delta_norm_term * delta_weight;
+          // T ret = delta_norm_term * delta_weight;
+          T ret = gamma_norm_term * 100.;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)
