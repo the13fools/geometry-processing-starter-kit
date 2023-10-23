@@ -153,7 +153,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
       curls = Eigen::VectorXd::Zero(F.rows());
 
-      frames = Eigen::MatrixXd::Random(F.rows(), 2);
+      // frames = Eigen::MatrixXd::Random(F.rows(), 2);
 
 
       // bound_edges.resize(F.rows(),2);
@@ -343,9 +343,16 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
+          T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
+          delta_rescale = (.0001 + 1./delta_rescale);
+          // delta_rescale = 1.;
+          // std::cout << delta_rescale << std::endl;
 
 
-          T delta_norm_term = delta.squaredNorm();
+
+          T delta_dirichlet = (a_delta+b_delta+c_delta-3*delta).squaredNorm()*delta_rescale;
+
+          T delta_norm_term = delta_rescale * delta.squaredNorm() + delta_dirichlet;
 
           Eigen::Vector4d ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector4d eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -400,7 +407,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         x = func.x_from_data([&] (int f_idx) {
           Eigen::VectorXd ret;
           ret = Eigen::VectorXd::Zero(6); // resize(10);
-          ret.head(2) = Eigen::VectorXd::Random(2);
+          ret.head(2) = Eigen::VectorXd::Random(2) * 0.0001;
           // ret << frames.row(f_idx), deltas.row(f_idx);
           return ret;
           });
@@ -600,7 +607,7 @@ private:
   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
-  int max_iters = 5000;
+  int max_iters = 50000;
   int cur_iter = 0;
   int inner_loop_iter = 0;
   double convergence_eps = 1e-10;
