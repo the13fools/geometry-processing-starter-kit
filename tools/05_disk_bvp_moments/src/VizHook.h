@@ -26,6 +26,9 @@
 
 #include <chrono>
 
+// #include <fstream>
+#include <sys/stat.h>
+
 enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
 
 
@@ -109,8 +112,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
@@ -465,6 +468,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       vec_smoothness.resize(frames.rows());
       vec_smoothness = metadata.col(1);
 
+
     }
 
 
@@ -569,8 +573,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
             std::cout << ms_int.count() << "ms\n";
 
-            std::string cur_log_file = "cur_file_iter_" + std::to_string(cur_iter) + ".png";
-            polyscope::screenshot(cur_log_file, true);
+
 
         }
         else if (cur_iter == max_iters) 
@@ -679,10 +682,29 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         vectors->vectorColor = glm::vec3(.7,.7,.7);
         
         // vectors->setVectorLengthScale(1., true);
-        vectors->setEnabled(true);
+        // vectors->setEnabled(true);
         // vectors->setVectorColor(glm::vec3(.7,.7,.7));
         
         polyscope::requestRedraw();   
+
+        // std::ifstream file;
+        std::string cur_log_file = "cur_file_iter_" + std::to_string(cur_iter) + ".png";
+
+        struct stat buffer;   
+        bool exists = (stat(cur_log_file.c_str(), &buffer) == 0); 
+
+        if (!exists)
+          polyscope::screenshot(cur_log_file, true);
+
+        // // opening the file
+        // file.open(cur_log_file.c_str(), 'r');
+
+        // if (file == NULL)
+              
+
+
+
+
     }
 
 

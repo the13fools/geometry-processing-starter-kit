@@ -116,6 +116,9 @@ int main(int argc, char **argv) {
 
   polyscope::state::userCallback = drawGUICallback;
 
+//   polyscope::GroundPlaneMode::None;
+// polyscope::options::groundPlaneEnabled = false;
+
 // polyscope::screenshotExtension = ".jpg";
 
 
