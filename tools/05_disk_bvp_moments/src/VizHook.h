@@ -17,6 +17,8 @@
 
 #include <igl/on_boundary.h>
 
+#include <igl/writeDMAT.h>
+
 
 #include <igl/map_vertices_to_circle.h>
 
@@ -106,8 +108,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
@@ -132,8 +134,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       w_bound = 1e6; 
       w_smooth = 1e3; // 1e4; // 1e3; 
       w_s_perp = 0; // 1e1 
-      w_curl = 1e3;
-      w_attenuate = 1e2;
+      w_curl = 0; // 1e3;
+      w_attenuate = 1; // 1e2;
 
       // current_element = Field_View::vec_dirch;
  
@@ -345,14 +347,14 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
           T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
           delta_rescale = (.0001 + 1./delta_rescale);
-          // delta_rescale = 1.;
+          delta_rescale = 1.;
           // std::cout << delta_rescale << std::endl;
 
 
 
-          T delta_dirichlet = (a_delta+b_delta+c_delta-3*delta).squaredNorm()*delta_rescale;
+          // T delta_dirichlet = (a_delta+b_delta+c_delta-3*delta).squaredNorm()*delta_rescale;
 
-          T delta_norm_term = delta_rescale * delta.squaredNorm() + delta_dirichlet;
+          T delta_norm_term = delta_rescale * delta.squaredNorm();// + delta_dirichlet;
 
           Eigen::Vector4d ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector4d eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -444,21 +446,42 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
 
             auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
+            // auto [f, g, H_proj] = func.eval_with_derivatives(x);
             TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
-            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
+            std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
 
             // std::cout<<"the number of nonzeros "<<H_proj.nonZeros()<<std::endl;
-
-            Eigen::VectorXd d = TinyAD::newton_direction(g, H_proj, solver);
+            Eigen::VectorXd d;
+            
+            try
+            {
+              d = TinyAD::newton_direction(g, H_proj, solver, 1e-6);
+            }
+            catch(const std::exception& e)
+            {
+              auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
+              f = f_h;
+              g = g_h;
+              H_proj = H_proj_h;
+              d = TinyAD::newton_direction(g, H_proj, solver);
+            }
+            
+            // d = TinyAD::newton_direction(g, H_proj, solver);
             double dec = TinyAD::newton_decrement(d, g);
             if (dec < convergence_eps || (inner_loop_iter > 100 && dec / f < 1e-4))
             {
-              w_attenuate = w_attenuate / 10.;
-              std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
-              inner_loop_iter = 0;
-              if (w_attenuate < 1e-12)
+              // w_attenuate = w_attenuate / 10.;
+              // std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
+              // inner_loop_iter = 0;
+              // if (w_attenuate < 1e-12)
                  cur_iter = max_iters;
+                Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
+                 igl::writeDMAT("converged_hessian.dmat",tmp,true);
             }
+
+            // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
+            // igl::writeDMAT("curr_hessian.dmat",tmp,true);
+
             // cur_iter = max_iters; // break
             x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-3);
 
@@ -607,7 +630,7 @@ private:
   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
-  int max_iters = 50000;
+  int max_iters = 5000;
   int cur_iter = 0;
   int inner_loop_iter = 0;
   double convergence_eps = 1e-10;

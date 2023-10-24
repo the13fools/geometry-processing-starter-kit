@@ -22,7 +22,7 @@
 
 #include <UtilsMisc.h>
 
-enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
+enum Field_View { vec_norms, delta_norms, gamma_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
 
 
 class VizHook : public PhysicsHook
@@ -47,7 +47,7 @@ public:
 
 /// Whatever maybe make this a dropdown eventually 
 // From line 556 of imgui demo: https://skia.googlesource.com/external/github.com/ocornut/imgui/+/refs/tags/v1.73/imgui_demo.cpp
-            const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
+            const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Gamma Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
             const char* current_element_name = (current_element >= 0 && current_element < Field_View::Element_COUNT) ? element_names[current_element] : "Unknown";
             ImGui::PushItemWidth(300);
             ImGui::SliderInt("Shading Mode", (int *) &current_element, 0, Element_COUNT - 1, current_element_name);
@@ -175,7 +175,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
       curls = Eigen::VectorXd::Zero(F.rows());
 
-      frames = Eigen::MatrixXd::Random(F.rows(), 2);
+      // frames = Eigen::MatrixXd::Random(F.rows(), 2);
       updateJacobians(frames, jacobians);
 
 
@@ -310,7 +310,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
           if (bound_face_idx(f_idx) == -1)
           {
-            T ret = w_bound*(delta.squaredNorm() + gamma.squaredNorm());
+            T ret = w_bound*(delta.squaredNorm());
             for(int i = 0; i < 3; i++)
             {
               int neighbor_edge_idx = cur_surf.data().faceNeighbors(f_idx, i);
@@ -395,8 +395,14 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
 
 
+          T delta_weight = std::min(w_curl/100., 1./w_attenuate);
+
+          T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
+          delta_rescale = (.0001 + 1./delta_rescale);
           T delta_norm_term = delta.squaredNorm();
-          T gamma_norm_term = gamma.squaredNorm();
+          T gamma_norm_term = gamma.squaredNorm() * delta_rescale;
+
+          T gamma_dirichlet_term = (s_a_gamma+s_b_gamma+s_c_gamma-3*gamma).squaredNorm()*delta_rescale;
 
           Eigen::Vector4d ea = e_projs2.row(cur_surf.data().faceEdges(f_idx, 0));
           Eigen::Vector4d eb = e_projs2.row(cur_surf.data().faceEdges(f_idx, 1));
@@ -420,10 +426,11 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
           // T atten = 1.;
 
-          T delta_weight = std::min(w_curl/100., 1./w_attenuate);
+
+         
 
           // T ret = delta_norm_term * delta_weight;
-          T ret = gamma_norm_term * 100.;
+          T ret = gamma_norm_term * 10. * w_smooth + gamma_dirichlet_term * .1 * w_smooth;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)
@@ -530,12 +537,18 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
               p_curr(0,0) = p_curr(0,0) + gamma_curr(0);// + delta_curr(0);
               p_curr(0,1) = p_curr(0,1) + gamma_curr(1);// + delta_curr(0);
               p_curr(1,0) = p_curr(1,0) + gamma_curr(2);// + delta_curr(0);
-              p_curr(1,1) = p_curr(0,0) + gamma_curr(3);// + delta_curr(0);
+              p_curr(1,1) = p_curr(1,1) + gamma_curr(3);// + delta_curr(0);
 
-              std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
+              // std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
 
               GN_proj_to_rank_1(p_curr, v_curr);
               frames.row(i) = v_curr;
+
+              Eigen::Matrix2d vtv_after_proj = v_curr*v_curr.transpose();
+              Eigen::Matrix2d gamma_after_proj = p_curr - vtv_after_proj;
+              gammas.row(i) = flatten(gamma_after_proj) ;
+
+              // std::cout << gammas.row(i) << std::endl;
 
 
 
@@ -544,6 +557,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
                 Eigen::VectorXd ret;
                 ret = Eigen::VectorXd::Zero(8); // resize(10);
                 ret.tail(4) = deltas.row(f_idx);
+                ret.head(4) = gammas.row(f_idx);
                 // ret.head(4) = Eigen::VectorXd::Random(4);
                 // ret << frames.row(f_idx), deltas.row(f_idx);
                 return ret;
@@ -632,6 +646,11 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
             case Field_View::delta_norms:
                 { 
                   polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", renderDeltas.rowwise().squaredNorm())->setEnabled(true);
+                } 
+                break; 
+            case Field_View::gamma_norms:
+                { 
+                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", renderGammas.rowwise().squaredNorm())->setEnabled(true);
                 } 
                 break; 
               
