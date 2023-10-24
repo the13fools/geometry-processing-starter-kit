@@ -22,6 +22,8 @@
 
 #include <UtilsMisc.h>
 
+#include <VizHelper.h>
+
 enum Field_View { vec_norms, delta_norms, gamma_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
 
 
@@ -400,7 +402,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
           T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
           delta_rescale = (.0001 + 1./delta_rescale);
           T delta_norm_term = delta.squaredNorm();
-          T gamma_norm_term = gamma.squaredNorm() * delta_rescale;
+          T gamma_norm_term = gamma.squaredNorm(); // * delta_rescale;
 
           T gamma_dirichlet_term = (s_a_gamma+s_b_gamma+s_c_gamma-3*gamma).squaredNorm()*delta_rescale;
 
@@ -429,8 +431,8 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
          
 
-          // T ret = delta_norm_term * delta_weight;
-          T ret = gamma_norm_term * 10. * w_smooth + gamma_dirichlet_term * .1 * w_smooth;
+          T ret = delta_norm_term * 10000.;
+          ret = gamma_norm_term * 10. * w_smooth; // + gamma_dirichlet_term * .1 * w_smooth;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)

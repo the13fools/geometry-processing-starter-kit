@@ -1,5 +1,6 @@
 #include "PhysicsHook.h"
 #include "Surface.h"
+#include "VizHelper.h"
 
 #include "polyscope/polyscope.h"
 #include "polyscope/surface_mesh.h"
@@ -136,6 +137,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       w_s_perp = 0; // 1e1 
       w_curl = 0; // 1e3;
       w_attenuate = 1; // 1e2;
+
+      identity_weight = 1e-3;
 
       // current_element = Field_View::vec_dirch;
  
@@ -347,7 +350,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
           T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
           delta_rescale = (.0001 + 1./delta_rescale);
-          delta_rescale = 1.;
+          // delta_rescale = 1.;
           // std::cout << delta_rescale << std::endl;
 
 
@@ -455,7 +458,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             
             try
             {
-              d = TinyAD::newton_direction(g, H_proj, solver, 1e-6);
+              d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
+              identity_weight = identity_weight / 2.;
             }
             catch(const std::exception& e)
             {
@@ -464,6 +468,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
               g = g_h;
               H_proj = H_proj_h;
               d = TinyAD::newton_direction(g, H_proj, solver);
+              identity_weight = identity_weight * 10.;
             }
             
             // d = TinyAD::newton_direction(g, H_proj, solver);
@@ -475,8 +480,11 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
               // inner_loop_iter = 0;
               // if (w_attenuate < 1e-12)
                  cur_iter = max_iters;
-                Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
-                 igl::writeDMAT("converged_hessian.dmat",tmp,true);
+
+                 
+
+                // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
+                //  igl::writeDMAT("converged_hessian.dmat",tmp,true);
             }
 
             // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
@@ -506,6 +514,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         {
             TINYAD_DEBUG_OUT("Final energy: " << func.eval(x));
             cur_iter++;
+
+             // FINAL LOGGING.  
         }
         else{
             this->pause();
@@ -623,6 +633,8 @@ private:
   Eigen::VectorXd moment_smoothness;
   // Eigen::VectorXd moment_smoothness;
 
+  VizHelper::VizCache vc;
+
 
   
   std::vector<Eigen::Matrix2d> rest_shapes;
@@ -634,6 +646,7 @@ private:
   int cur_iter = 0;
   int inner_loop_iter = 0;
   double convergence_eps = 1e-10;
+  double identity_weight = 1e-3;
 
   TinyAD::LinearSolver<double> solver;
   // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> cg_solver;

@@ -54,7 +54,7 @@ public:
 
     
 
-        /* 
+         
 
         std::cout << "Test linear solver performance" << std::endl;
 
@@ -86,18 +86,20 @@ public:
 
         Eigen::SparseMatrix<double> test;
         test = mat.transpose(); // + 100. * id;
-        test = test + mat + 1000000. * id;
+        test = test * mat; //  + 1000000. * id;
         Eigen::SimplicialLLT<Eigen::SparseMatrix<double>> eigllt; 
         Eigen::CholmodSimplicialLLT<Eigen::SparseMatrix<double>> cholmodllt; 
 
         auto t1 = std::chrono::high_resolution_clock::now();
         eigllt.compute(test);
         auto t2 = std::chrono::high_resolution_clock::now();
+        auto eigllt_ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+        std::cout << "eig llt took: " << eigllt_ms_int.count() << "ms\n";
         cholmodllt.compute(test);
         auto t3 = std::chrono::high_resolution_clock::now();
-        auto eigllt_ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+        
         auto cholmodllt_ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2);
-        std::cout << "eig llt took: " << eigllt_ms_int.count() << "ms\n";
+        // std::cout << "eig llt took: " << eigllt_ms_int.count() << "ms\n";
         std::cout << "cholmod llt took: " << cholmodllt_ms_int.count() << "ms\n";
 
 
@@ -108,7 +110,7 @@ public:
         if(cholmodllt.info()!=Eigen::Success) {
             std::cout << "llt failed" << std::endl;
         }
-        */
+        
 
     }
 
