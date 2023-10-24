@@ -133,12 +133,15 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // w_curl = 1e5;
 
       w_bound = 1e6; 
-      w_smooth = 1e3; // 1e4; // 1e3; 
+      w_smooth = 10; // 1e4; // 1e3; 
+      w_smooth_vector = 1;
       w_s_perp = 0; // 1e1 
-      w_curl = 0; // 1e3;
+      w_curl = 1e3; // 1e3;
       w_attenuate = 1; // 1e2;
 
-      identity_weight = 1e-3;
+      identity_weight = 1e-6;
+
+      useProjHessian = true;
 
       // current_element = Field_View::vec_dirch;
  
@@ -156,7 +159,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
       deltas = Eigen::MatrixXd::Zero(F.rows(), 4);
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
-      curls = Eigen::VectorXd::Zero(F.rows());
+      curls_sym = Eigen::VectorXd::Zero(F.rows());
+      curls_primal = Eigen::VectorXd::Zero(F.rows());
+      vec_smoothness = Eigen::VectorXd::Zero(F.rows());
 
       // frames = Eigen::MatrixXd::Random(F.rows(), 2);
 
@@ -205,6 +210,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       rots.clear();// 
       rstars.clear();
       e_projs.clear();
+      e_projs_primal.clear();
 
       e_projs2.resize(nedges,4); 
 
@@ -225,6 +231,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
         Eigen::Vector4d e_proj = rstar_xcomp_from_r(e_to_x);
         e_projs.push_back(e_proj);
+        e_projs_primal.push_back(edge_dir.head(2));
         e_projs2.row(i) = e_proj;
 
       }
@@ -343,7 +350,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           // T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (curr_perp * curr_perp.transpose())).norm();
           T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (currcurrt)).squaredNorm();
 
-          // T dirichlet_term = (a + b + c - 3*curr).squaredNorm();
+          T vector_dirichlet_term = (a + b + c - 3*curr).squaredNorm();
           T dirichlet_term = (aat+bbt+cct-3*currcurrt).squaredNorm();
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
@@ -353,7 +360,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           // delta_rescale = 1.;
           // std::cout << delta_rescale << std::endl;
 
-
+          vec_smoothness(f_idx) = TinyAD::to_passive(dirichlet_term);
 
           // T delta_dirichlet = (a_delta+b_delta+c_delta-3*delta).squaredNorm()*delta_rescale;
 
@@ -371,7 +378,18 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           curl_term +=  pow(eb.dot(bbt + b_delta) - eb.dot(currcurrt + delta),2);
           curl_term +=  pow(ec.dot(cct + c_delta) - ec.dot(currcurrt + delta),2);
 
-          curls(f_idx) = TinyAD::to_passive(curl_term);
+          curls_sym(f_idx) = TinyAD::to_passive(curl_term);
+
+
+          Eigen::Vector2<T> ea_primal = e_projs_primal.at(cur_surf.data().faceEdges(f_idx, 0));
+          Eigen::Vector2<T> eb_primal = e_projs_primal.at(cur_surf.data().faceEdges(f_idx, 1));
+          Eigen::Vector2<T> ec_primal = e_projs_primal.at(cur_surf.data().faceEdges(f_idx, 2));
+
+          T curl_term_primal = pow(ea_primal.dot(a) - ea_primal.dot(curr),2);
+          curl_term_primal +=  pow(eb_primal.dot(b) - eb_primal.dot(curr),2);
+          curl_term_primal +=  pow(ec_primal.dot(c) - ec_primal.dot(curr),2);
+
+          curls_primal(f_idx) = TinyAD::to_passive(curl_term_primal);
 
           // curl_term += 1e-5*abs(curl_term - metadata(1));
 
@@ -384,6 +402,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           T delta_weight = std::min(w_curl/100., 1./w_attenuate);
 
           T ret = delta_norm_term * delta_weight;
+          if (w_smooth_vector > 0)
+            return w_smooth_vector * vector_dirichlet_term + ret;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)
@@ -426,12 +446,23 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       renderFrames.resize(frames.rows(), 3);
       renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
 
+      // vc.d().frames.resize(frames.rows(), 3);
+      // vc.d().frames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+      // vc.d().deltas = deltas;
+
+      // // vc.updateVizState();
+
+      // vc.d().vec_curl = curls_primal;
+      // vc.d().sym_curl = curls_sym;
+
+      // vc.d().frame_smoothness = vec_smoothness;
+
       renderDeltas = deltas;
 
       // sym_curl.resize(frames.rows());
-      sym_curl = curls;
+      // sym_curl = curls;
 
-      // vec_smoothness.resize(frames.rows());
+      vec_smoothness.resize(frames.rows());
       vec_smoothness = metadata.col(1);
 
     }
@@ -448,18 +479,38 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             auto t1 = std::chrono::high_resolution_clock::now();
 
 
-            auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
-            // auto [f, g, H_proj] = func.eval_with_derivatives(x);
+            // auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
+            auto [f, g, H_proj] = func.eval_with_derivatives(x);
             TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
-            std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
+            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
 
             // std::cout<<"the number of nonzeros "<<H_proj.nonZeros()<<std::endl;
             Eigen::VectorXd d;
+            double dec;
+            // d = TinyAD::newton_direction(g, H_proj, solver);
+             // = TinyAD::newton_decrement(d, g);
             
             try
             {
-              d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
-              identity_weight = identity_weight / 2.;
+              if (w_smooth_vector > 0 || useProjHessian)
+              {
+                auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
+                f = f_h;
+                g = g_h;
+                H_proj = H_proj_h;
+                d = TinyAD::newton_direction(g, H_proj, solver, 0.);
+                dec = TinyAD::newton_decrement(d, g);
+
+                if ( dec / f < 1e-3)
+                  useProjHessian = false;
+
+              }
+              else
+              {
+                d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
+                identity_weight = identity_weight / 2.;
+              }
+              
             }
             catch(const std::exception& e)
             {
@@ -468,19 +519,28 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
               g = g_h;
               H_proj = H_proj_h;
               d = TinyAD::newton_direction(g, H_proj, solver);
+              dec = TinyAD::newton_decrement(d, g);
               identity_weight = identity_weight * 10.;
             }
             
-            // d = TinyAD::newton_direction(g, H_proj, solver);
-            double dec = TinyAD::newton_decrement(d, g);
+            // 
+
             if (dec < convergence_eps || (inner_loop_iter > 100 && dec / f < 1e-4))
             {
-              // w_attenuate = w_attenuate / 10.;
-              // std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
-              // inner_loop_iter = 0;
-              // if (w_attenuate < 1e-12)
-                 cur_iter = max_iters;
+              if (w_smooth_vector > 0)
+              {
+                w_smooth_vector = 0;
+                
+              }
+              else {
+                w_attenuate = w_attenuate / 10.;
+                std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
+                // inner_loop_iter = 0;
+                if (w_attenuate < 1e-12)
+                  cur_iter = max_iters;
+              }
 
+              useProjHessian = true;
                  
 
                 // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
@@ -508,6 +568,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
             auto t2 = std::chrono::high_resolution_clock::now();
             auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
             std::cout << ms_int.count() << "ms\n";
+
+            std::string cur_log_file = "cur_file_iter_" + std::to_string(cur_iter) + ".png";
+            polyscope::screenshot(cur_log_file, true);
 
         }
         else if (cur_iter == max_iters) 
@@ -548,15 +611,16 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
                   polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", renderDeltas.rowwise().squaredNorm())->setEnabled(true);
                 } 
                 break; 
+ 
               
             case Field_View::primal_curl_residual: 
                 { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", renderFrames.rowwise().norm())->setEnabled(true);
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", curls_primal)->setEnabled(true);
                 } 
                 break;             
             case Field_View::sym_curl_residual: 
                 { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", sym_curl)->setEnabled(true);
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", curls_sym)->setEnabled(true);
                 } 
                 break;           
             case Field_View::vec_dirch: 
@@ -571,6 +635,44 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
                 } 
                 break; 
         } 
+
+
+        // switch (current_element) 
+        // { 
+        //     case Field_View::vec_norms:
+        //         { 
+        //           polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", vc.d().frame_norms)->setEnabled(true);
+        //         } 
+        //         break;
+
+        //     case Field_View::delta_norms:
+        //         { 
+        //           polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", vc.d().delta_norms)->setEnabled(true);
+        //         } 
+        //         break; 
+              
+        //     case Field_View::primal_curl_residual: 
+        //         { 
+        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", vc.d().vec_curl)->setEnabled(true);
+        //         } 
+        //         break;             
+        //     case Field_View::sym_curl_residual: 
+        //         { 
+        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", vc.d().sym_curl)->setEnabled(true);
+        //         } 
+        //         break;           
+        //     case Field_View::vec_dirch: 
+        //         { 
+        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vc.d().frame_smoothness)->setEnabled(true);
+        //         } 
+        //         break; 
+
+        //     default: 
+        //         { 
+        //             // std::cout << "Unknown color!"; 
+        //         } 
+        //         break; 
+        // } 
       
   
         auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", renderFrames); //   ( ((N.array()*0.5)+0.5).eval());
@@ -586,7 +688,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
 // static auto func;
   double w_bound;
-  double w_smooth; 
+  double w_smooth;
+  double w_smooth_vector; 
   double w_curl;
   double w_s_perp;
 
@@ -604,7 +707,8 @@ private:
     Eigen::MatrixXd metadata;
   Eigen::MatrixXd frames_orig;
 
-  Eigen::VectorXd curls; 
+  Eigen::VectorXd curls_sym;
+  Eigen::VectorXd curls_primal; 
 
   Surface cur_surf;
 
@@ -612,8 +716,10 @@ private:
       std::vector<Eigen::Matrix2d> rots;// 
       std::vector<Eigen::Matrix4d> rstars;
       std::vector<Eigen::Vector4d> e_projs;
+      std::vector<Eigen::Vector2d> e_projs_primal;
 
       Eigen::MatrixXd e_projs2;
+
 
 
   
@@ -625,8 +731,8 @@ private:
   Eigen::MatrixXi renderF;
   Field_View current_element;
 
-  Eigen::VectorXd vec_curl;
-  Eigen::VectorXd sym_curl;
+  // Eigen::VectorXd vec_curl;
+  // Eigen::VectorXd sym_curl;
   Eigen::VectorXd vec_norms;
   Eigen::VectorXd delta_norms;
   Eigen::VectorXd vec_smoothness;
@@ -634,6 +740,7 @@ private:
   // Eigen::VectorXd moment_smoothness;
 
   VizHelper::VizCache vc;
+  bool useProjHessian = true;
 
 
   
@@ -646,7 +753,7 @@ private:
   int cur_iter = 0;
   int inner_loop_iter = 0;
   double convergence_eps = 1e-10;
-  double identity_weight = 1e-3;
+  double identity_weight = 1e-6;
 
   TinyAD::LinearSolver<double> solver;
   // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> cg_solver;

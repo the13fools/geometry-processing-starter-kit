@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(06_disk_bvp_with_gamma)
+project(07_disk_bvp_with_gamma_jacobian)
 
 # Find Eigen
 find_package(Eigen3 3.3 REQUIRED)

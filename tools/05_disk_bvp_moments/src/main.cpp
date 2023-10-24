@@ -116,6 +116,7 @@ int main(int argc, char **argv) {
 
   polyscope::state::userCallback = drawGUICallback;
 
+// polyscope::screenshotExtension = ".jpg";
 
 
   polyscope::show();

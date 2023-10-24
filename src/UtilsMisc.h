@@ -122,10 +122,14 @@ void GN_proj_to_rank_1(Eigen::Matrix2d p, Eigen::Vector2d& v)
         Eigen::Matrix2d hess;
         // Eigen::Vector2d v = Eigen::Vector2d::Random()*10;
         // v = .1*v + targ;
+
+        Eigen::Vector2d v_prev;
+        int iter;
         
-        for(int i = 0; i < 5; i++)
+        for(int i = 0; i < 500; i++)
         {
             // std::cout << v.transpose() << std::endl;
+            v_prev = v;
 
             grad(0) = -4 * v(0) * (a - v(0)*v(0)) - 2 * v(1) * (b - v(0) * v(1)) - 2 * v(1) * (c - v(0) * v(1));
             grad(1) = -2 * v(0) * (b - v(0) * v(1)) - 2 * v(0) * (c - v(0) * v(1)) - 4 * v(1) * (d - v(1)*v(1));
@@ -138,10 +142,16 @@ void GN_proj_to_rank_1(Eigen::Matrix2d p, Eigen::Vector2d& v)
             Eigen::Matrix2d inv = hess.inverse();
             v += hess.colPivHouseholderQr().solve(-grad); // .5 * (inv * grad);
             // v += inv*(-grad-hess*v);
+
+            if ( ( v - v_prev ).squaredNorm() < 1e-8 )
+            {
+                // std::cout << "break at " << i << std::endl;
+                break;
+            }
       
         }
 
-        std::cout << v.transpose() << std::endl;
+        std::cout << "p \n " << p << " v \n" << v << v.transpose() << std::endl;
         if(v.norm() < 1e-4)
         {
             v = Eigen::Vector2d::Random();

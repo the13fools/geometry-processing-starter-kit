@@ -105,6 +105,8 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
         jac.col(0) << 2*cv(0), cv(1), cv(1), 0;
         jac.col(1) << 0, cv(0), cv(0), 2*cv(1);
         jacobians.push_back(jac);
+
+        std::cout << jac << std::endl;
       }
     }
 
@@ -130,7 +132,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
@@ -173,11 +175,11 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
       frames = Eigen::MatrixXd::Zero(F.rows(), 2);
       deltas = Eigen::MatrixXd::Zero(F.rows(), 4);
-      gammas = Eigen::MatrixXd::Zero(F.rows(), 4);
+      gammas = Eigen::MatrixXd::Zero(F.rows(), 2);
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
       curls = Eigen::VectorXd::Zero(F.rows());
 
-      // frames = Eigen::MatrixXd::Random(F.rows(), 2);
+      frames = Eigen::MatrixXd::Random(F.rows(), 2);
       updateJacobians(frames, jacobians);
 
 
@@ -269,7 +271,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
 
       // Set up function with 2D vertex positions as variables.
-      func = TinyAD::scalar_function<8>(TinyAD::range(F.rows()));
+      func = TinyAD::scalar_function<6>(TinyAD::range(F.rows()));
 
       // Add objective term per face. Each connecting 3 vertices.
       func.add_elements<4>(TinyAD::range(F.rows()), [&] (auto& element) -> TINYAD_SCALAR_TYPE(element)
@@ -287,7 +289,11 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
           Eigen::Vector4<T> delta = s_curr.tail(4);
           // Eigen::Vector2<T> gamma = s_curr.segment(2, 2);
 
-          Eigen::Vector4<T> gamma = s_curr.head(4);
+          Eigen::Vector2<T> gamma_blah = s_curr.head(2);
+          Eigen::Vector4<T> gamma = jacobians.at(f_idx) * gamma_blah;
+
+          std::cout << f_idx << " gamma " << TinyAD::to_passive(gamma) << std::endl;
+ 
           Eigen::Matrix2<T> gamma_folded = fold(gamma);
 
           Eigen::Vector2<T> primal = frames.row(f_idx);
@@ -331,19 +337,22 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
             return ret;
           }
 
+          int fidx_a = cur_surf.data().faceNeighbors(f_idx, 0);
+          int fidx_b = cur_surf.data().faceNeighbors(f_idx, 1);
+          int fidx_c = cur_surf.data().faceNeighbors(f_idx, 2);
 
 
-          Eigen::VectorX<T> s_a = element.variables(cur_surf.data().faceNeighbors(f_idx, 0));
-          Eigen::VectorX<T> s_b = element.variables(cur_surf.data().faceNeighbors(f_idx, 1));
-          Eigen::VectorX<T> s_c = element.variables(cur_surf.data().faceNeighbors(f_idx, 2));
+          Eigen::VectorX<T> s_a = element.variables(fidx_a);
+          Eigen::VectorX<T> s_b = element.variables(fidx_b);
+          Eigen::VectorX<T> s_c = element.variables(fidx_c);
 
           // Eigen::Vector2<T> s_a_gamma = s_a.segment(2, 2);
           // Eigen::Vector2<T> s_b_gamma = s_b.segment(2, 2);
           // Eigen::Vector2<T> s_c_gamma = s_c.segment(2, 2);
 
-          Eigen::Vector2<T> a = frames.row(cur_surf.data().faceNeighbors(f_idx, 0));
-          Eigen::Vector2<T> b = frames.row(cur_surf.data().faceNeighbors(f_idx, 1));
-          Eigen::Vector2<T> c = frames.row(cur_surf.data().faceNeighbors(f_idx, 2));
+          Eigen::Vector2<T> a = frames.row(fidx_a);
+          Eigen::Vector2<T> b = frames.row(fidx_b);
+          Eigen::Vector2<T> c = frames.row(fidx_c);
 
           // a = a + s_a_gamma;
           // b = b + s_b_gamma;
@@ -360,9 +369,9 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
 
-          Eigen::Vector4<T> s_a_gamma = s_a.head(4);
-          Eigen::Vector4<T> s_b_gamma = s_b.head(4);
-          Eigen::Vector4<T> s_c_gamma = s_c.head(4);
+          Eigen::Vector4<T> s_a_gamma = jacobians.at(fidx_a) * s_a.head(2);
+          Eigen::Vector4<T> s_b_gamma = jacobians.at(fidx_b) * s_b.head(2);
+          Eigen::Vector4<T> s_c_gamma = jacobians.at(fidx_c) * s_c.head(2);
 
           aat = aat + s_a_gamma;
           bbt = bbt + s_b_gamma;
@@ -431,7 +440,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
 
          
 
-          T ret = delta_norm_term * 10000.;
+          T ret = delta_norm_term * 1000.;
           ret = gamma_norm_term * 10. * w_smooth; // + gamma_dirichlet_term * .1 * w_smooth;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
@@ -460,7 +469,9 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
       // each variable handle (vertex index) to its initial 2D value (Eigen::Vector2d).
         x = func.x_from_data([&] (int f_idx) {
           Eigen::VectorXd ret;
-          ret = Eigen::VectorXd::Zero(8); // resize(10);
+          ret = Eigen::VectorXd::Zero(6); // resize(10);
+          ret.head(6) = Eigen::VectorXd::Random(6) * 1e-4;
+
           // ret.head(4) = Eigen::VectorXd::Random(4);
           // ret << frames.row(f_idx), deltas.row(f_idx);
           return ret;
@@ -513,7 +524,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
                 // frames.row(f_idx) = v.head<2>();
                 // metadata.row(f_idx) = v.segment(2, 2);
                 // gammas.row(f_idx) = v.segment(2, 2);
-                gammas.row(f_idx) = v.head<4>();
+                gammas.row(f_idx) = v.head<2>();
 
                 deltas.row(f_idx) = v.tail<4>();
                 // if (bound_face_idx(f_idx) == 1)
@@ -530,8 +541,10 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
               // Eigen::Vector2d v_curr = gammas.row(i);
               Eigen::Matrix2d vtv_curr = v_curr*v_curr.transpose();
               Eigen::Matrix2d p_curr = vtv_curr;
-              // Eigen::VectorXd gamma_curr = jacobians.at(i)*gammas.row(i).transpose();
-              Eigen::VectorXd gamma_curr = gammas.row(i);
+              Eigen::VectorXd gamma_curr = jacobians.at(i) * gammas.row(i).transpose();
+              // Eigen::VectorXd gamma_curr = gammas.row(i);
+
+              std::cout << i <<  " Gammas "<<  gammas.row(i) << " gamma_curr " << gamma_curr << std::endl;
 
 
               Eigen::VectorXd delta_curr = deltas.row(i);
@@ -542,13 +555,13 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
               p_curr(1,1) = p_curr(1,1) + gamma_curr(3);// + delta_curr(0);
 
               // std::cout << "normalized " << v_curr.normalized().transpose() << "norm " << v_curr.norm() << "v_curr " << v_curr.transpose() <<  std::endl;
-
+              std::cout << "v_curr input " << v_curr << " p_curr inp " << p_curr << std::endl;
               GN_proj_to_rank_1(p_curr, v_curr);
               frames.row(i) = v_curr;
 
               Eigen::Matrix2d vtv_after_proj = v_curr*v_curr.transpose();
               Eigen::Matrix2d gamma_after_proj = p_curr - vtv_after_proj;
-              gammas.row(i) = flatten(gamma_after_proj) ;
+              // gammas.row(i) = Eigen::VectorXd::Zero(2);//flatten(gamma_after_proj) ;
 
               // std::cout << gammas.row(i) << std::endl;
 
@@ -557,9 +570,9 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
               // x = x*0;
               x = func.x_from_data([&] (int f_idx) {
                 Eigen::VectorXd ret;
-                ret = Eigen::VectorXd::Zero(8); // resize(10);
+                ret = Eigen::VectorXd::Zero(6); // resize(10);
                 ret.tail(4) = deltas.row(f_idx);
-                ret.head(4) = gammas.row(f_idx);
+                ret.head(2) = gammas.row(f_idx);
                 // ret.head(4) = Eigen::VectorXd::Random(4);
                 // ret << frames.row(f_idx), deltas.row(f_idx);
                 return ret;
@@ -748,7 +761,7 @@ private:
   
   std::vector<Eigen::Matrix2d> rest_shapes;
 // %%% 2 + 4 + 4
-  decltype(TinyAD::scalar_function<8>(TinyAD::range(1))) func;
+  decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
   int max_iters = 5000;

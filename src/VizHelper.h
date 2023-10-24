@@ -18,6 +18,7 @@ struct UI_State
 {
 
     bool save_data = true;
+    bool show_frames = true;
     std::string save_path = "prev_data";
     std::string obj_path = "SET THIS IN YOUR TOOL CODE DOOD!";
 
@@ -82,15 +83,17 @@ public:
     VizCache(){};
     virtual ~VizCache() {}
 
-    const VizData &data() const { return d; }
+    VizData &d() { return data_; }
 
-    int nVerts() const { return d.s.data().V.rows(); }
-    int nFaces() const { return d.s.data().F.rows(); }
-    int nEdges() const { return d.s.data().E.rows(); }
+    int nVerts()  { return d().s.data().V.rows(); }
+    int nFaces()  { return d().s.data().F.rows(); }
+    int nEdges()  { return d().s.data().E.rows(); }
 
     void updateVizState()
     {
-        updateVizState(d.frames, d.moments, d.deltas, d.gammas);
+        std::cout << "frames " << d().frames << " deltas " << d().deltas << std::endl;
+        // updateVizState(d().frames, d().moments, d().deltas, d().gammas);
+            updateVizState(d().frames, d().frames * 0, d().deltas, d().frames * 0);
     }
 
     void updateVizState(Eigen::VectorXd frames,     
@@ -109,10 +112,10 @@ public:
         int nfaces = nFaces();
 
 
-        d.frame_norms = frames.rowwise().squaredNorm();
-        d.moment_norms = moments.rowwise().squaredNorm();
-        d.delta_norms = deltas.rowwise().squaredNorm();
-        d.gamma_norms = gammas.rowwise().squaredNorm();
+        d().frame_norms = frames.rowwise().squaredNorm();
+        // d().moment_norms = moments.rowwise().squaredNorm();
+        d().delta_norms = deltas.rowwise().squaredNorm();
+        // d().gamma_norms = gammas.rowwise().squaredNorm();
 
 
 
@@ -133,7 +136,7 @@ private:
     // // compute the geometric data structs
     // void buildGeometricStructures();
 
-    VizData d;
+    VizData data_;
 };
 
 }
