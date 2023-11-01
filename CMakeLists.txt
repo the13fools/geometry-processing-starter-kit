@@ -118,6 +118,8 @@ add_subdirectory(tools/02_tiny_ad_test)
 add_subdirectory(tools/03_disk_bvp_v1)
 add_subdirectory(tools/04_disk_bvp_wdelta)
 add_subdirectory(tools/05_disk_bvp_moments)
+add_subdirectory(tools/06_disk_prox_gamma)
+
 add_subdirectory(tools/06_disk_bvp_with_gamma)
 add_subdirectory(tools/07_disk_bvp_with_gamma_jacobian)
 
