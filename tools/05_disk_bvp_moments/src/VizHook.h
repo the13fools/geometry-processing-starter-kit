@@ -76,7 +76,11 @@ public:
     virtual void initSimulation()
     {
 
-      cur_mesh_name = "circle_1000";
+      cur_mesh_name = "circle_subdiv";
+
+      // cur_mesh_name = "circle";
+      // cur_mesh_name = "circle_1000";
+
       igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/" + cur_mesh_name + ".obj", V, F);
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
@@ -87,7 +91,9 @@ public:
 
       // std::chrono::time_point now_clock = std::chrono::system_clock::now();
       // std::chrono::year_month_day now_time = std::chrono::floor<std::chrono::day>(now_clock);
-      cur_log_folder = "../../results/" + cur_mesh_name + "_10_1"; // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
+      int month = 11; 
+      int day = 2;
+      cur_log_folder = "../../results/" + cur_mesh_name + "_" + std::to_string(month) + "_" + std::to_string(day); // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
       std::cout << "log folder path: " << cur_log_folder << std::endl;
       mkdir(cur_log_folder.c_str(), 0777);
 // 
@@ -99,6 +105,10 @@ public:
       // P = tutte_embedding(V, F); 
 
       // std::cout << "v size " <<  V.size() << " f size " << F.size() << " p size " << P.size() <<std::endl;
+
+      buffer = 0;
+      prev_energy = -1;
+
 
       cur_iter = 0; 
       inner_loop_iter = 0;
@@ -332,8 +342,13 @@ public:
           // T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (curr_perp * curr_perp.transpose())).norm();
           T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (currcurrt)).squaredNorm();
 
-          T primal_dirichlet_term = (a + b + c - 3*curr).squaredNorm();
-          T dirichlet_term = (aat+bbt+cct-3*currcurrt).squaredNorm();
+          // T primal_dirichlet_term = (a + b + c - 3*curr).squaredNorm();
+          // T dirichlet_term = (aat+bbt+cct-3*currcurrt).squaredNorm();
+
+          T primal_dirichlet_term = (a - curr).squaredNorm() + (b - curr).squaredNorm() + (c - curr).squaredNorm();
+          T dirichlet_term = (aat-currcurrt).squaredNorm() + (bbt-currcurrt).squaredNorm() + (cct-currcurrt).squaredNorm();
+
+
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
@@ -474,6 +489,11 @@ public:
             double dec;
             // d = TinyAD::newton_direction(g, H_proj, solver);
              // = TinyAD::newton_decrement(d, g);
+
+            if (prev_energy < 0)
+            {
+              prev_energy = f + 100 * convergence_eps;
+            }
             
             try
             {
@@ -487,12 +507,17 @@ public:
                 dec = TinyAD::newton_decrement(d, g);
 
                 if ( dec / f < 1e-3)
+                {
                   useProjHessian = false;
+                  std::cout << "switch off projected hessian to fine-tune result" << std::endl;
+                }
+
 
               }
               else
               {
                 d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
+                dec = TinyAD::newton_decrement(d, g);
                 identity_weight = identity_weight / 2.;
               }
               
@@ -509,9 +534,18 @@ public:
             }
             
             // 
+            std::cout << "current decrement: " << dec << std::endl;
+            // if( dec < convergence_eps )
+            // {
+            //   buffer -= 1;
+            //   identity_weight = identity_weight * 10.;
+            // }
 
-            if (dec < convergence_eps || (inner_loop_iter > 100 && dec / f < 1e-4))
+            if ( dec < convergence_eps || (inner_loop_iter > 300 && dec / f < 1e-5))
             {
+              std::cout << "***** current decrement: " << dec << std::endl;
+              buffer = 5;
+              identity_weight = 1e-6;
               if (w_smooth_vector > 0)
               {
                 w_smooth_vector = 0;
@@ -718,6 +752,9 @@ private:
 // %%% 2 + 4 + 4
   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
+
+  int buffer;
+  double prev_energy; 
 
   int max_iters = 5000;
   int cur_iter = 0;
