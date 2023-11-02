@@ -2,6 +2,8 @@
 #include "Surface.h"
 #include "VizHelper.h"
 
+#include "UtilsMisc.h"
+
 #include "polyscope/polyscope.h"
 #include "polyscope/surface_mesh.h"
 
@@ -20,6 +22,7 @@
 
 #include <igl/writeDMAT.h>
 
+#include <sys/stat.h>
 
 #include <igl/map_vertices_to_circle.h>
 
@@ -29,7 +32,7 @@
 // #include <fstream>
 #include <sys/stat.h>
 
-enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual, gui_free, Element_COUNT };
+enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, primal_curl_residual, sym_curl_residual, gui_free, Element_COUNT };
 
 
 class VizHook : public PhysicsHook
@@ -67,56 +70,26 @@ public:
     }
 
 
-template <typename ScalarType, int Rows, int Cols>
-Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType, Rows, Cols>& matrix) {
-    Eigen::Matrix<ScalarType, Rows * Cols, 1> flattened;
-    flattened << matrix(0, 0), matrix(0, 1), matrix(1, 0), matrix(1, 1);
-    return flattened;
-}
-
-
-    Eigen::Matrix4d rstar_from_r(Eigen::Matrix2d r)
-    {
-      Eigen::Matrix4d ret;
-      double a = r(0,0);
-      double b = r(0,1);
-      double c = r(1,0);
-      double d = r(1,1);
-      ret << a*a, a*b, a*b, b*b,
-             a*c, b*c, a*d, b*d,
-             a*c, b*c, a*d, b*d,
-             c*c, c*d, c*d, d*d;
-
-      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
-      return ret;
-    }
-
-
-    Eigen::Vector4d rstar_xcomp_from_r(Eigen::Matrix2d r)
-    {
-      Eigen::Vector4d ret;
-      double a = r(0,0);
-      double b = r(0,1);
-      double c = r(1,0);
-      double d = r(1,1);
-      ret << a*a, a*b, a*b, b*b;
-
-      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
-      return ret;
-    }
 
 
 
     virtual void initSimulation()
     {
 
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
+      cur_mesh_name = "circle_1000";
+      igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/" + cur_mesh_name + ".obj", V, F);
 
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
-      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
+      // igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);
+
+      // std::chrono::time_point now_clock = std::chrono::system_clock::now();
+      // std::chrono::year_month_day now_time = std::chrono::floor<std::chrono::day>(now_clock);
+      cur_log_folder = "../../results/" + cur_mesh_name + "_10_1"; // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
+      std::cout << "log folder path: " << cur_log_folder << std::endl;
+      mkdir(cur_log_folder.c_str(), 0777);
 // 
 
       cur_surf = Surface(V, F);
@@ -164,7 +137,9 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       metadata = Eigen::MatrixXd::Zero(F.rows(), 2);
       curls_sym = Eigen::VectorXd::Zero(F.rows());
       curls_primal = Eigen::VectorXd::Zero(F.rows());
-      vec_smoothness = Eigen::VectorXd::Zero(F.rows());
+      smoothness_primal = Eigen::VectorXd::Zero(F.rows());
+      smoothness_sym = Eigen::VectorXd::Zero(F.rows());
+
 
       // frames = Eigen::MatrixXd::Random(F.rows(), 2);
 
@@ -250,11 +225,11 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
 
 
-      renderFrames.resize(frames.rows(), 3);
-      renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+      vc.d().frames.resize(frames.rows(), 3);
+      vc.d().frames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
 
-      polyscope::getSurfaceMesh()->addFaceVectorQuantity("orig normals", renderFrames); //   ( ((N.array()*0.5)+0.5).eval());
-      polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", frames.rowwise().squaredNorm())->setEnabled(true); //   ( ((N.array()*0.5)+0.5).eval());
+      polyscope::getSurfaceMesh()->addFaceVectorQuantity("orig normals", vc.d().frames); //   ( ((N.array()*0.5)+0.5).eval());
+      // polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", frames.rowwise().squaredNorm())->setEnabled(true); //   ( ((N.array()*0.5)+0.5).eval());
 
 
 
@@ -325,11 +300,17 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           Eigen::Matrix2<T> cc = c*c.transpose();
 
 
-
+          Eigen::Vector4<T> a_delta = s_a.tail(4);
+          Eigen::Vector4<T> b_delta = s_b.tail(4);
+          Eigen::Vector4<T> c_delta = s_c.tail(4);
 
           Eigen::Vector4<T> aat = flatten(aa);
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
+
+          aat = aat + a_delta;
+          bbt = bbt + b_delta; 
+          cct = cct + c_delta;
 
 
 
@@ -337,9 +318,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
          
 
 
-          Eigen::Vector4<T> a_delta = s_a.tail(4);
-          Eigen::Vector4<T> b_delta = s_b.tail(4);
-          Eigen::Vector4<T> c_delta = s_c.tail(4);
+
 
 
 
@@ -353,7 +332,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           // T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (curr_perp * curr_perp.transpose())).norm();
           T s_perp_term = ((a.dot(curr_perp) + b.dot(curr_perp) + c.dot(curr_perp)) * (currcurrt)).squaredNorm();
 
-          T vector_dirichlet_term = (a + b + c - 3*curr).squaredNorm();
+          T primal_dirichlet_term = (a + b + c - 3*curr).squaredNorm();
           T dirichlet_term = (aat+bbt+cct-3*currcurrt).squaredNorm();
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
@@ -363,7 +342,8 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
           // delta_rescale = 1.;
           // std::cout << delta_rescale << std::endl;
 
-          vec_smoothness(f_idx) = TinyAD::to_passive(dirichlet_term);
+          smoothness_primal(f_idx) = TinyAD::to_passive(primal_dirichlet_term);
+          smoothness_sym(f_idx) = TinyAD::to_passive(dirichlet_term);
 
           // T delta_dirichlet = (a_delta+b_delta+c_delta-3*delta).squaredNorm()*delta_rescale;
 
@@ -406,7 +386,7 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
 
           T ret = delta_norm_term * delta_weight;
           if (w_smooth_vector > 0)
-            return w_smooth_vector * vector_dirichlet_term + ret;
+            return w_smooth_vector * primal_dirichlet_term + ret;
           if (w_smooth > 0)
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)
@@ -446,27 +426,28 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     virtual void updateRenderGeometry()
     {
 
-      renderFrames.resize(frames.rows(), 3);
-      renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+      // renderFrames.resize(frames.rows(), 3);
+      // renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
 
-      // vc.d().frames.resize(frames.rows(), 3);
-      // vc.d().frames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
-      // vc.d().deltas = deltas;
+      vc.d().frames.resize(frames.rows(), 3);
+      vc.d().frames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
+      vc.d().deltas = deltas;
 
-      // // vc.updateVizState();
+      vc.updateVizState();
 
-      // vc.d().vec_curl = curls_primal;
-      // vc.d().sym_curl = curls_sym;
+      vc.d().vec_curl = curls_primal;
+      vc.d().sym_curl = curls_sym;
 
-      // vc.d().frame_smoothness = vec_smoothness;
+      vc.d().frame_smoothness = smoothness_primal;
+      vc.d().moment_smoothness = smoothness_sym;
 
-      renderDeltas = deltas;
+      // renderDeltas = deltas;
 
       // sym_curl.resize(frames.rows());
       // sym_curl = curls;
 
-      vec_smoothness.resize(frames.rows());
-      vec_smoothness = metadata.col(1);
+      // vec_smoothness.resize(frames.rows());
+      // vec_smoothness = metadata.col(1);
 
 
     }
@@ -605,30 +586,34 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         { 
             case Field_View::vec_norms:
                 { 
-                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", renderFrames.rowwise().squaredNorm())->setEnabled(true);
+                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", vc.d().frame_norms)->setEnabled(true);
                 } 
                 break;
 
             case Field_View::delta_norms:
                 { 
-                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", renderDeltas.rowwise().squaredNorm())->setEnabled(true);
+                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", vc.d().delta_norms)->setEnabled(true);
                 } 
                 break; 
- 
               
             case Field_View::primal_curl_residual: 
                 { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", curls_primal)->setEnabled(true);
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", vc.d().vec_curl)->setEnabled(true);
                 } 
                 break;             
             case Field_View::sym_curl_residual: 
                 { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", curls_sym)->setEnabled(true);
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", vc.d().sym_curl)->setEnabled(true);
                 } 
                 break;           
             case Field_View::vec_dirch: 
                 { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vec_smoothness)->setEnabled(true);
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vc.d().frame_smoothness)->setEnabled(true);
+                } 
+                break; 
+            case Field_View::moment_dirch: 
+                { 
+                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("moment_dirch", vc.d().moment_smoothness)->setEnabled(true);
                 } 
                 break; 
 
@@ -638,47 +623,10 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
                 } 
                 break; 
         } 
-
-
-        // switch (current_element) 
-        // { 
-        //     case Field_View::vec_norms:
-        //         { 
-        //           polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", vc.d().frame_norms)->setEnabled(true);
-        //         } 
-        //         break;
-
-        //     case Field_View::delta_norms:
-        //         { 
-        //           polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", vc.d().delta_norms)->setEnabled(true);
-        //         } 
-        //         break; 
-              
-        //     case Field_View::primal_curl_residual: 
-        //         { 
-        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", vc.d().vec_curl)->setEnabled(true);
-        //         } 
-        //         break;             
-        //     case Field_View::sym_curl_residual: 
-        //         { 
-        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", vc.d().sym_curl)->setEnabled(true);
-        //         } 
-        //         break;           
-        //     case Field_View::vec_dirch: 
-        //         { 
-        //             polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vc.d().frame_smoothness)->setEnabled(true);
-        //         } 
-        //         break; 
-
-        //     default: 
-        //         { 
-        //             // std::cout << "Unknown color!"; 
-        //         } 
-        //         break; 
-        // } 
       
+
   
-        auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", renderFrames); //   ( ((N.array()*0.5)+0.5).eval());
+        auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", vc.getFrames()); //   ( ((N.array()*0.5)+0.5).eval());
         vectors->vectorColor = glm::vec3(.7,.7,.7);
         
         // vectors->setVectorLengthScale(1., true);
@@ -688,13 +636,13 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
         polyscope::requestRedraw();   
 
         // std::ifstream file;
-        std::string cur_log_file = "cur_file_iter_" + std::to_string(cur_iter) + ".png";
+        std::string cur_log_file =  cur_log_folder + "/cur_file_iter_" + std::to_string(10000 + cur_iter) + ".png";
 
         struct stat buffer;   
         bool exists = (stat(cur_log_file.c_str(), &buffer) == 0); 
 
         if (!exists)
-          polyscope::screenshot(cur_log_file, true);
+        polyscope::screenshot(cur_log_file, true);
 
         // // opening the file
         // file.open(cur_log_file.c_str(), 'r');
@@ -726,11 +674,18 @@ private:
   Eigen::MatrixXd P; //  = tutte_embedding(V, F); // #V-by-2 2D vertex positions
   Eigen::MatrixXd frames;
   Eigen::MatrixXd deltas;
-    Eigen::MatrixXd metadata;
+
+  Eigen::MatrixXd metadata;
   Eigen::MatrixXd frames_orig;
 
   Eigen::VectorXd curls_sym;
   Eigen::VectorXd curls_primal; 
+  Eigen::VectorXd smoothness_primal;
+  Eigen::VectorXd smoothness_sym;
+
+  std::string cur_mesh_name;
+  std::string cur_log_folder;
+
 
   Surface cur_surf;
 
@@ -747,19 +702,12 @@ private:
   
   Eigen::VectorXi bound_face_idx; // the faces on the boundary, for now let tinyAD do the boundary enforcement 
 
-  Eigen::MatrixXd renderFrames;
-  Eigen::MatrixXd renderDeltas;
+  // Eigen::MatrixXd renderFrames;
+  // Eigen::MatrixXd renderDeltas;
   Eigen::MatrixXd renderP;
   Eigen::MatrixXi renderF;
   Field_View current_element;
 
-  // Eigen::VectorXd vec_curl;
-  // Eigen::VectorXd sym_curl;
-  Eigen::VectorXd vec_norms;
-  Eigen::VectorXd delta_norms;
-  Eigen::VectorXd vec_smoothness;
-  Eigen::VectorXd moment_smoothness;
-  // Eigen::VectorXd moment_smoothness;
 
   VizHelper::VizCache vc;
   bool useProjHessian = true;

@@ -130,7 +130,7 @@ Eigen::Matrix<ScalarType, 2,2> fold(const Eigen::Matrix<ScalarType, 4, 1>& matri
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle.obj", V, F);
 
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_subdiv.obj", V, F);
-      igl::readOBJ(std::string(SOURCE_PATH) + "/circle_1000.obj", V, F);
+      igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/circle_1000.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole2.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_little_hole.obj", V, F);
       // igl::readOBJ(std::string(SOURCE_PATH) + "/circle_pent_hole_descimate.obj", V, F);

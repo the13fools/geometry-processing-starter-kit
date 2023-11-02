@@ -4,6 +4,11 @@
 
 #include <Eigen/Dense>
 
+
+//////
+/// A robust 2x2 svd apparently.  Not well tested.  
+/////
+
 // https://scicomp.stackexchange.com/a/28506
 template <class T>
 void Rq2x2Helper(const Eigen::Matrix<T, 2, 2>& A, T& x, T& y, T& z, T& c2, T& s2) {
@@ -108,6 +113,10 @@ void Svd2x2Helper(const Eigen::Matrix<T, 2, 2>& A) {
 }
 
 
+///////
+/// Gauss Newton rank-1 2x2 Projection 
+///////
+
 void GN_proj_to_rank_1(Eigen::Matrix2d p, Eigen::Vector2d& v)
 {        
     // std::cout << "Newtons method to do rank-1 projection test" << std::endl;
@@ -157,6 +166,49 @@ void GN_proj_to_rank_1(Eigen::Matrix2d p, Eigen::Vector2d& v)
             v = Eigen::Vector2d::Random();
         }
 }
+
+///////////
+///// 2x2 matrix ops 
+///////////
+
+template <typename ScalarType, int Rows, int Cols>
+Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType, Rows, Cols>& matrix) {
+    Eigen::Matrix<ScalarType, Rows * Cols, 1> flattened;
+    flattened << matrix(0, 0), matrix(0, 1), matrix(1, 0), matrix(1, 1);
+    return flattened;
+}
+
+
+    Eigen::Matrix4d rstar_from_r(Eigen::Matrix2d r)
+    {
+      Eigen::Matrix4d ret;
+      double a = r(0,0);
+      double b = r(0,1);
+      double c = r(1,0);
+      double d = r(1,1);
+      ret << a*a, a*b, a*b, b*b,
+             a*c, b*c, a*d, b*d,
+             a*c, b*c, a*d, b*d,
+             c*c, c*d, c*d, d*d;
+
+      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
+      return ret;
+    }
+
+
+    Eigen::Vector4d rstar_xcomp_from_r(Eigen::Matrix2d r)
+    {
+      Eigen::Vector4d ret;
+      double a = r(0,0);
+      double b = r(0,1);
+      double c = r(1,0);
+      double d = r(1,1);
+      ret << a*a, a*b, a*b, b*b;
+
+      // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
+      return ret;
+    }
+
 
 
 #endif

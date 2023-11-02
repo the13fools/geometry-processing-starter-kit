@@ -4,7 +4,7 @@
 #include <mutex>
 #include <thread>
 
-#include "polyscope/polyscope.h"
+// #include "polyscope/polyscope.h"
 
 #include <Eigen/Core>
 #include <vector>
@@ -25,6 +25,7 @@ struct UI_State
 
 
 
+
 };
 
 
@@ -36,8 +37,12 @@ struct VizData
     UI_State ui;
 
     // Duplicated here for convenience
-    const Eigen::MatrixXd V;
-    const Eigen::MatrixXi F;
+    Eigen::MatrixXd V;
+    Eigen::MatrixXi F;
+
+    int rank = 1;
+    int nmoments = 0;
+    int vec_dim = 2;
 
     // Optimization State 
     Eigen::MatrixXd frames;
@@ -72,6 +77,7 @@ struct VizData
 
 };
 
+// enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, primal_curl_residual, sym_curl_residual, gui_free, Element_COUNT };
 
 
 
@@ -79,9 +85,24 @@ struct VizData
 class VizCache
 {
 public:
-    VizCache(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F);
+    VizCache(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F)
+    {
+        VizCache(V,F,0,1,2);
+    };
+    VizCache(const Eigen::MatrixXd &V, const Eigen::MatrixXi &F, int nmoments, int rank, int vec_dim)
+    {
+        d().V = V;
+        d().F = F;
+        d().nmoments = nmoments;
+        d().rank = rank;
+        d().vec_dim = vec_dim;
+
+        init_matricies();
+    };
     VizCache(){};
     virtual ~VizCache() {}
+
+    void init_matricies();
 
     VizData &d() { return data_; }
 
@@ -89,14 +110,16 @@ public:
     int nFaces()  { return d().s.data().F.rows(); }
     int nEdges()  { return d().s.data().E.rows(); }
 
+    Eigen::MatrixXd getFrames() { return d().frames; }
+
     void updateVizState()
     {
-        std::cout << "frames " << d().frames << " deltas " << d().deltas << std::endl;
+        // std::cout << "frames " << d().frames.row(0) << " deltas " << d().deltas.row(0) << std::endl;
         // updateVizState(d().frames, d().moments, d().deltas, d().gammas);
             updateVizState(d().frames, d().frames * 0, d().deltas, d().frames * 0);
     }
 
-    void updateVizState(Eigen::VectorXd frames,     
+    void updateVizState(Eigen::MatrixXd frames,     
                         Eigen::MatrixXd moments,
                         Eigen::MatrixXd deltas)
     {
@@ -104,13 +127,14 @@ public:
         updateVizState(frames, moments, deltas, gammas);
     }
 
-    void updateVizState(Eigen::VectorXd frames,     
+    void updateVizState(Eigen::MatrixXd frames,     
                         Eigen::MatrixXd moments,
                         Eigen::MatrixXd deltas,
                         Eigen::MatrixXd gammas)
     {
         int nfaces = nFaces();
 
+        // std::cout << "frames " << frames.row(0) << " deltas " << deltas.row(0) << std::endl;
 
         d().frame_norms = frames.rowwise().squaredNorm();
         // d().moment_norms = moments.rowwise().squaredNorm();
