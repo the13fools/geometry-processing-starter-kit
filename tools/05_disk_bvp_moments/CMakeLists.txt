@@ -9,7 +9,7 @@ find_package(OpenMP REQUIRED)
 file(GLOB SRCFILES src/*.cpp src/*.h src/*.hpp)	  
 
 add_executable(${PROJECT_NAME} ${SRCFILES})
-target_include_directories(${PROJECT_NAME} PUBLIC ${EIGEN3_INCLUDE_DIR} ../../src)
+target_include_directories(${PROJECT_NAME} PUBLIC ${EIGEN3_INCLUDE_DIR} ../../src ../../lib)
 # add_subdirectory(../libs/TinyAD)
 
 # Use C++17

@@ -210,5 +210,118 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
     }
 
 
+//     /////// Simulation Step 
+
+//     void take_one_step()
+//     {
+
+//             auto t1 = std::chrono::high_resolution_clock::now();
+
+
+//             // auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
+//             auto [f, g, H_proj] = func.eval_with_derivatives(x);
+//             TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
+//             // std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
+
+//             // std::cout<<"the number of nonzeros "<<H_proj.nonZeros()<<std::endl;
+//             Eigen::VectorXd d;
+//             double dec;
+//             // d = TinyAD::newton_direction(g, H_proj, solver);
+//              // = TinyAD::newton_decrement(d, g);
+
+//             if (prev_energy < 0)
+//             {
+//               prev_energy = f + 100 * convergence_eps;
+//             }
+            
+//             try
+//             {
+//               if (w_smooth_vector > 0 || useProjHessian)
+//               {
+//                 auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
+//                 f = f_h;
+//                 g = g_h;
+//                 H_proj = H_proj_h;
+//                 d = TinyAD::newton_direction(g, H_proj, solver, 0.);
+//                 dec = TinyAD::newton_decrement(d, g);
+
+//                 if ( dec / f < 1e-3)
+//                 {
+//                   useProjHessian = false;
+//                   std::cout << "switch off projected hessian to fine-tune result" << std::endl;
+//                 }
+
+
+//               }
+//               else
+//               {
+//                 d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
+//                 dec = TinyAD::newton_decrement(d, g);
+//                 identity_weight = identity_weight / 2.;
+//               }
+              
+//             }
+//             catch(const std::exception& e)
+//             {
+//               auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
+//               f = f_h;
+//               g = g_h;
+//               H_proj = H_proj_h;
+//               d = TinyAD::newton_direction(g, H_proj, solver);
+//               dec = TinyAD::newton_decrement(d, g);
+//               if ( !useProjHessian )
+//                 identity_weight = identity_weight * 10.;
+//             }
+            
+//             // 
+//             std::cout << "current decrement: " << dec << std::endl;
+//             // if( dec < convergence_eps )
+//             // {
+//             //   buffer -= 1;
+//             //   identity_weight = identity_weight * 10.;
+//             // }
+
+//             if ( dec < convergence_eps || (inner_loop_iter > 300 && dec / f < 1e-5))
+//             {
+//               std::cout << "***** current decrement: " << dec << std::endl;
+//               buffer = 5;
+//               identity_weight = 1e-6;
+//               if (w_smooth_vector > 0)
+//               {
+//                 w_smooth_vector = 0;
+                
+//               }
+//               else {
+//                 w_attenuate = w_attenuate / 10.;
+//                 std::cout << "New attenuation value is set to: " << w_attenuate << std::endl;
+//                 // inner_loop_iter = 0;
+//                 if (w_attenuate < 1e-12)
+//                   cur_iter = max_iters;
+//               }
+
+//               useProjHessian = true;
+                 
+
+//                 // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
+//                 //  igl::writeDMAT("converged_hessian.dmat",tmp,true);
+//             }
+
+//             // Eigen::MatrixXd tmp =TinyAD::to_passive(H_proj);
+//             // igl::writeDMAT("curr_hessian.dmat",tmp,true);
+
+//             // cur_iter = max_iters; // break
+//             x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-3);
+
+//             auto t2 = std::chrono::high_resolution_clock::now();
+//             auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+//             std::cout << ms_int.count() << "ms\n";
+
+
+// }
+
+
+
+
+
 
 #endif

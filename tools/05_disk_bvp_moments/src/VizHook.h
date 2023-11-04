@@ -1,13 +1,12 @@
 #include "PhysicsHook.h"
-#include "Surface.h"
-#include "VizHelper.h"
+#include "Mint2DHook.h"
 
-#include "UtilsMisc.h"
+#include "Surface.h"
+
 
 #include "polyscope/polyscope.h"
 #include "polyscope/surface_mesh.h"
 
-#include <Eigen/Core>
 
 #include <Eigen/IterativeLinearSolvers>
 
@@ -26,49 +25,56 @@
 
 #include <igl/map_vertices_to_circle.h>
 
+#include "date.h"
+
 
 #include <chrono>
 
 // #include <fstream>
 #include <sys/stat.h>
 
-enum Field_View { vec_norms, delta_norms, vec_dirch, moment_dirch, primal_curl_residual, sym_curl_residual, gui_free, Element_COUNT };
 
 
-class VizHook : public PhysicsHook
+class VizHook : public Mint2DHook
 {
 public:
-    VizHook() : PhysicsHook() {
+    VizHook() : Mint2DHook() {
       current_element = Field_View::vec_norms;
     }
 
+//     virtual void drawGUI()
+//     {
+// 	//	ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
+// 	//	ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
+// 		// ImGui::InputFloat("k scale", &k_scale);
+// 		// ImGui::InputFloat("dt scale", &dt_scale);
+
+//     ImGui::InputDouble("Smoothness Weight", &w_smooth);
+//     ImGui::InputDouble("S Perp Weight", &w_s_perp);
+//     ImGui::InputDouble("Curl Weight", &w_curl);
+//     ImGui::InputDouble("Bound Weight", &w_bound);
+
+
+// /// Whatever maybe make this a dropdown eventually 
+// // From line 556 of imgui demo: https://skia.googlesource.com/external/github.com/ocornut/imgui/+/refs/tags/v1.73/imgui_demo.cpp
+//             const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
+//             const char* current_element_name = (current_element >= 0 && current_element < Field_View::Element_COUNT) ? element_names[current_element] : "Unknown";
+//             ImGui::PushItemWidth(300);
+//             ImGui::SliderInt("Shading Mode", (int *) &current_element, 0, Element_COUNT - 1, current_element_name);
+//             ImGui::PopItemWidth();
+          
+          
+          
+//             // ImGui::SameLine(); // ImGui::HelpMarker("Using the format string parameter to display a name instead of the underlying integer.");
+
+//     }
+
+
     virtual void drawGUI()
     {
-	//	ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
-	//	ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
-		// ImGui::InputFloat("k scale", &k_scale);
-		// ImGui::InputFloat("dt scale", &dt_scale);
-
-    ImGui::InputDouble("Smoothness Weight", &w_smooth);
-    ImGui::InputDouble("S Perp Weight", &w_s_perp);
-    ImGui::InputDouble("Curl Weight", &w_curl);
-    ImGui::InputDouble("Bound Weight", &w_bound);
-
-
-/// Whatever maybe make this a dropdown eventually 
-// From line 556 of imgui demo: https://skia.googlesource.com/external/github.com/ocornut/imgui/+/refs/tags/v1.73/imgui_demo.cpp
-            const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
-            const char* current_element_name = (current_element >= 0 && current_element < Field_View::Element_COUNT) ? element_names[current_element] : "Unknown";
-            ImGui::PushItemWidth(300);
-            ImGui::SliderInt("Shading Mode", (int *) &current_element, 0, Element_COUNT - 1, current_element_name);
-            ImGui::PopItemWidth();
-          
-          
-          
-            // ImGui::SameLine(); // ImGui::HelpMarker("Using the format string parameter to display a name instead of the underlying integer.");
+      Mint2DHook::drawGUI();
 
     }
-
 
 
 
@@ -76,9 +82,9 @@ public:
     virtual void initSimulation()
     {
 
-      cur_mesh_name = "circle_subdiv";
+      // cur_mesh_name = "circle_subdiv";
 
-      // cur_mesh_name = "circle";
+      cur_mesh_name = "circle";
       // cur_mesh_name = "circle_1000";
 
       igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/" + cur_mesh_name + ".obj", V, F);
@@ -91,9 +97,23 @@ public:
 
       // std::chrono::time_point now_clock = std::chrono::system_clock::now();
       // std::chrono::year_month_day now_time = std::chrono::floor<std::chrono::day>(now_clock);
-      int month = 11; 
-      int day = 2;
-      cur_log_folder = "../../results/" + cur_mesh_name + "_" + std::to_string(month) + "_" + std::to_string(day); // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
+
+// namespace C = std::chrono;
+    // namespace D = date;
+    // namespace S = std;
+
+    auto tp = std::chrono::system_clock::now(); // tp is a C::system_clock::time_point
+    auto dp = date::floor<date::days>(tp);  // dp is a sys_days, which is a
+                                      // type alias for a C::time_point
+    auto ymd = date::year_month_day{dp};
+    auto time = date::make_time(std::chrono::duration_cast<std::chrono::milliseconds>(tp-dp));
+
+
+      int month = static_cast<unsigned>( ymd.month() ); 
+      int day = static_cast<unsigned>( ymd.day() );
+      int hour = time.hours().count();
+      int minute = time.minutes().count();
+      cur_log_folder = "../../results/" + cur_mesh_name + "_" + std::to_string(month) + "_" + std::to_string(day) + "_" + std::to_string(hour) + "/" + std::to_string(minute); // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
       std::cout << "log folder path: " << cur_log_folder << std::endl;
       mkdir(cur_log_folder.c_str(), 0777);
 // 
@@ -318,9 +338,9 @@ public:
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
 
-          aat = aat + a_delta;
-          bbt = bbt + b_delta; 
-          cct = cct + c_delta;
+          // aat = aat + a_delta;
+          // bbt = bbt + b_delta; 
+          // cct = cct + c_delta;
 
 
 
@@ -440,30 +460,7 @@ public:
 
     virtual void updateRenderGeometry()
     {
-
-      // renderFrames.resize(frames.rows(), 3);
-      // renderFrames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
-
-      vc.d().frames.resize(frames.rows(), 3);
-      vc.d().frames << frames, Eigen::MatrixXd::Zero(frames.rows(), 1);
-      vc.d().deltas = deltas;
-
-      vc.updateVizState();
-
-      vc.d().vec_curl = curls_primal;
-      vc.d().sym_curl = curls_sym;
-
-      vc.d().frame_smoothness = smoothness_primal;
-      vc.d().moment_smoothness = smoothness_sym;
-
-      // renderDeltas = deltas;
-
-      // sym_curl.resize(frames.rows());
-      // sym_curl = curls;
-
-      // vec_smoothness.resize(frames.rows());
-      // vec_smoothness = metadata.col(1);
-
+      Mint2DHook::updateRenderGeometry();
 
     }
 
@@ -530,7 +527,8 @@ public:
               H_proj = H_proj_h;
               d = TinyAD::newton_direction(g, H_proj, solver);
               dec = TinyAD::newton_decrement(d, g);
-              identity_weight = identity_weight * 10.;
+              if ( !useProjHessian )
+                identity_weight = identity_weight * 10.;
             }
             
             // 
@@ -572,6 +570,11 @@ public:
             // cur_iter = max_iters; // break
             x = TinyAD::line_search(x, d, f, g, func, 1., .8, 512, 1e-3);
 
+            auto t2 = std::chrono::high_resolution_clock::now();
+            auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+            std::cout << ms_int.count() << "ms\n";
+
+
 
             ///// Move this out 
             func.x_to_data(x, [&] (int f_idx, const Eigen::VectorXd& v) {
@@ -584,10 +587,7 @@ public:
                 // }
                 });
 
-            auto t2 = std::chrono::high_resolution_clock::now();
-            auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-            std::cout << ms_int.count() << "ms\n";
-
+    
 
 
         }
@@ -608,117 +608,19 @@ public:
     }
 
 
-// Need to fill out viewer for each of: Field_View { vec_dirch, moment_dirch, sym_curl_residual, primal_curl_residual,
     virtual void renderRenderGeometry()
     {
-		polyscope::getSurfaceMesh()->updateVertexPositions(renderP);
-        
-        polyscope::getSurfaceMesh()->centerBoundingBox();
-        polyscope::getSurfaceMesh()->resetTransform();
-
-        switch (current_element) 
-        { 
-            case Field_View::vec_norms:
-                { 
-                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_norms", vc.d().frame_norms)->setEnabled(true);
-                } 
-                break;
-
-            case Field_View::delta_norms:
-                { 
-                  polyscope::getSurfaceMesh()->addFaceScalarQuantity("delta_norms", vc.d().delta_norms)->setEnabled(true);
-                } 
-                break; 
-              
-            case Field_View::primal_curl_residual: 
-                { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("primal_curl_residual", vc.d().vec_curl)->setEnabled(true);
-                } 
-                break;             
-            case Field_View::sym_curl_residual: 
-                { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("sym_curl_residual", vc.d().sym_curl)->setEnabled(true);
-                } 
-                break;           
-            case Field_View::vec_dirch: 
-                { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("vec_dirch", vc.d().frame_smoothness)->setEnabled(true);
-                } 
-                break; 
-            case Field_View::moment_dirch: 
-                { 
-                    polyscope::getSurfaceMesh()->addFaceScalarQuantity("moment_dirch", vc.d().moment_smoothness)->setEnabled(true);
-                } 
-                break; 
-
-            default: 
-                { 
-                    // std::cout << "Unknown color!"; 
-                } 
-                break; 
-        } 
-      
-
-  
-        auto vectors = polyscope::getSurfaceMesh()->addFaceVectorQuantity("frames", vc.getFrames()); //   ( ((N.array()*0.5)+0.5).eval());
-        vectors->vectorColor = glm::vec3(.7,.7,.7);
-        
-        // vectors->setVectorLengthScale(1., true);
-        // vectors->setEnabled(true);
-        // vectors->setVectorColor(glm::vec3(.7,.7,.7));
-        
-        polyscope::requestRedraw();   
-
-        // std::ifstream file;
-        std::string cur_log_file =  cur_log_folder + "/cur_file_iter_" + std::to_string(10000 + cur_iter) + ".png";
-
-        struct stat buffer;   
-        bool exists = (stat(cur_log_file.c_str(), &buffer) == 0); 
-
-        if (!exists)
-        polyscope::screenshot(cur_log_file, true);
-
-        // // opening the file
-        // file.open(cur_log_file.c_str(), 'r');
-
-        // if (file == NULL)
-              
-
-
-
-
+      Mint2DHook::renderRenderGeometry();
     }
 
 
-// static auto func;
-  double w_bound;
-  double w_smooth;
-  double w_smooth_vector; 
-  double w_curl;
-  double w_s_perp;
 
-  double w_attenuate;
-
-
-
-private:
+protected:
   // Read mesh and compute Tutte embedding
-  Eigen::MatrixXd V; // #V-by-3 3D vertex positions
-  Eigen::MatrixXi F; // #F-by-3 indices into V
-  Eigen::MatrixXd P; //  = tutte_embedding(V, F); // #V-by-2 2D vertex positions
-  Eigen::MatrixXd frames;
-  Eigen::MatrixXd deltas;
+
+
 
   Eigen::MatrixXd metadata;
-  Eigen::MatrixXd frames_orig;
-
-  Eigen::VectorXd curls_sym;
-  Eigen::VectorXd curls_primal; 
-  Eigen::VectorXd smoothness_primal;
-  Eigen::VectorXd smoothness_sym;
-
-  std::string cur_mesh_name;
-  std::string cur_log_folder;
 
 
   Surface cur_surf;
@@ -738,12 +640,11 @@ private:
 
   // Eigen::MatrixXd renderFrames;
   // Eigen::MatrixXd renderDeltas;
-  Eigen::MatrixXd renderP;
-  Eigen::MatrixXi renderF;
-  Field_View current_element;
 
 
-  VizHelper::VizCache vc;
+
+
+
   bool useProjHessian = true;
 
 
@@ -753,16 +654,10 @@ private:
   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
   Eigen::VectorXd x;
 
-  int buffer;
+
   double prev_energy; 
 
-  int max_iters = 5000;
-  int cur_iter = 0;
-  int inner_loop_iter = 0;
-  double convergence_eps = 1e-10;
-  double identity_weight = 1e-6;
 
-  TinyAD::LinearSolver<double> solver;
   // Eigen::ConjugateGradient<Eigen::SparseMatrix<double>> cg_solver;
 
 
