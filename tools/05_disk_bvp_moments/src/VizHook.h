@@ -33,6 +33,8 @@
 // #include <fstream>
 #include <sys/stat.h>
 
+#include "UtilsMisc.h"
+
 
 
 class VizHook : public Mint2DHook
@@ -84,8 +86,8 @@ public:
 
       // cur_mesh_name = "circle_subdiv";
 
-      cur_mesh_name = "circle";
-      // cur_mesh_name = "circle_1000";
+      // cur_mesh_name = "circle";
+      cur_mesh_name = "circle_1000";
 
       igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/" + cur_mesh_name + ".obj", V, F);
 
@@ -113,9 +115,17 @@ public:
       int day = static_cast<unsigned>( ymd.day() );
       int hour = time.hours().count();
       int minute = time.minutes().count();
-      cur_log_folder = "../../results/" + cur_mesh_name + "_" + std::to_string(month) + "_" + std::to_string(day) + "_" + std::to_string(hour) + "/" + std::to_string(minute); // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
+      cur_log_folder = "../../results/" + cur_mesh_name + "_" + std::to_string(month) + "_" + std::to_string(day) + "_" + std::to_string(hour); 
+      int mk1succeeded = mkdir(cur_log_folder.c_str(), 0777);
+
+      
+      cur_log_folder = cur_log_folder + "/" + std::to_string(minute); // + std::to_string(now_time.month()) + "_" + std::to_string(now_time.day());
       std::cout << "log folder path: " << cur_log_folder << std::endl;
-      mkdir(cur_log_folder.c_str(), 0777);
+      int mk2succeeded = mkdir(cur_log_folder.c_str(), 0777);
+      if (!mk2succeeded)
+      {
+        std::cout << "WARNING did not succeed in creating logging directory" << std::endl;
+      }
 // 
 
       cur_surf = Surface(V, F);
@@ -142,7 +152,7 @@ public:
       w_smooth = 10; // 1e4; // 1e3; 
       w_smooth_vector = 1;
       w_s_perp = 0; // 1e1 
-      w_curl = 1e3; // 1e3;
+      w_curl = 1e2; // 1e3;
       w_attenuate = 1; // 1e2;
 
       identity_weight = 1e-6;
@@ -338,9 +348,9 @@ public:
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
 
-          // aat = aat + a_delta;
-          // bbt = bbt + b_delta; 
-          // cct = cct + c_delta;
+          aat = aat + a_delta;
+          bbt = bbt + b_delta; 
+          cct = cct + c_delta;
 
 
 
@@ -372,9 +382,9 @@ public:
 
           // T dirichlet_term = (aa + bb + cc - 3*currcurr).norm();
   // dirichlet_term += 1e-5*abs(dirichlet_term - metadata(0));
-          T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
-          delta_rescale = (.0001 + 1./delta_rescale);
-          // delta_rescale = 1.;
+          // T delta_rescale = std::max(frames.row(f_idx).squaredNorm(), 1e-8);
+          // delta_rescale = (.0001 + 1./delta_rescale);
+          T delta_rescale = 1.;
           // std::cout << delta_rescale << std::endl;
 
           smoothness_primal(f_idx) = TinyAD::to_passive(primal_dirichlet_term);
@@ -417,7 +427,8 @@ public:
 
           // T atten = 1.;
 
-          T delta_weight = std::min(w_curl/100., 1./w_attenuate);
+          T delta_weight = .1; // std::min(w_curl/100., 1./w_attenuate);
+          T w_curl_new = std::min(1e4, 1./w_attenuate) * w_curl;
 
           T ret = delta_norm_term * delta_weight;
           if (w_smooth_vector > 0)
@@ -426,8 +437,8 @@ public:
             ret = ret + w_attenuate * w_smooth * dirichlet_term;
           if (w_s_perp > 0)
             ret = ret + w_attenuate * w_s_perp * s_perp_term;
-          if (w_curl > 0)
-            ret = ret + w_curl * curl_term;
+          if (w_curl_new > 0)
+            ret = ret + w_curl_new * curl_term;
 
           return ret;
 

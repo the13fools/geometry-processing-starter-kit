@@ -4,7 +4,7 @@
 #include <mutex>
 #include <thread>
 
-#include "polyscope/polyscope.h"
+// #include "polyscope/polyscope.h"
 
 class PhysicsHook
 {
