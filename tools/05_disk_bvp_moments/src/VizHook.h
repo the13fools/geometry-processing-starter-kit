@@ -44,33 +44,6 @@ public:
       current_element = Field_View::vec_norms;
     }
 
-//     virtual void drawGUI()
-//     {
-// 	//	ImGui::SliderFloat("k scale", &k_scale, 0.0001f, 2.0f, "k * %.3f");
-// 	//	ImGui::SliderFloat("dt scale", &dt_scale, 0.0001f, 2.0f, "dt * %.3f");
-// 		// ImGui::InputFloat("k scale", &k_scale);
-// 		// ImGui::InputFloat("dt scale", &dt_scale);
-
-//     ImGui::InputDouble("Smoothness Weight", &w_smooth);
-//     ImGui::InputDouble("S Perp Weight", &w_s_perp);
-//     ImGui::InputDouble("Curl Weight", &w_curl);
-//     ImGui::InputDouble("Bound Weight", &w_bound);
-
-
-// /// Whatever maybe make this a dropdown eventually 
-// // From line 556 of imgui demo: https://skia.googlesource.com/external/github.com/ocornut/imgui/+/refs/tags/v1.73/imgui_demo.cpp
-//             const char* element_names[Field_View::Element_COUNT] = { "Vector Norms", "Delta Norms", "Vector Dirichlet", "Symmetric Dirichlet", "Vector Curl", "Symmetric Curl", "free" };
-//             const char* current_element_name = (current_element >= 0 && current_element < Field_View::Element_COUNT) ? element_names[current_element] : "Unknown";
-//             ImGui::PushItemWidth(300);
-//             ImGui::SliderInt("Shading Mode", (int *) &current_element, 0, Element_COUNT - 1, current_element_name);
-//             ImGui::PopItemWidth();
-          
-          
-          
-//             // ImGui::SameLine(); // ImGui::HelpMarker("Using the format string parameter to display a name instead of the underlying integer.");
-
-//     }
-
 
     virtual void drawGUI()
     {
@@ -84,10 +57,10 @@ public:
     virtual void initSimulation()
     {
 
-      // cur_mesh_name = "circle_subdiv";
+      cur_mesh_name = "circle_subdiv";
 
       // cur_mesh_name = "circle";
-      cur_mesh_name = "circle_1000";
+      // cur_mesh_name = "circle_1000";
 
       igl::readOBJ(std::string(SOURCE_PATH) + "/../shared/" + cur_mesh_name + ".obj", V, F);
 
