@@ -192,9 +192,9 @@ public:
           Eigen::Vector4<T> bbt = flatten(bb);
           Eigen::Vector4<T> cct = flatten(cc);
 
-          aat = aat + a_delta;
-          bbt = bbt + b_delta; 
-          cct = cct + c_delta;
+          // aat = aat + a_delta;
+          // bbt = bbt + b_delta; 
+          // cct = cct + c_delta;
 
 
 
@@ -246,9 +246,13 @@ public:
           // Eigen::Vector4<T> eb = e_projs.at(cur_surf.data().faceEdges(f_idx, 1));
           // Eigen::Vector4<T> ec = e_projs.at(cur_surf.data().faceEdges(f_idx, 2));
 
-          T curl_term = pow(ea.dot(aat + a_delta) - ea.dot(currcurrt + delta),2);
-          curl_term +=  pow(eb.dot(bbt + b_delta) - eb.dot(currcurrt + delta),2);
-          curl_term +=  pow(ec.dot(cct + c_delta) - ec.dot(currcurrt + delta),2);
+          // T curl_term = pow(ea.dot(aat + a_delta) - ea.dot(currcurrt + delta),2);
+          // curl_term +=  pow(eb.dot(bbt + b_delta) - eb.dot(currcurrt + delta),2);
+          // curl_term +=  pow(ec.dot(cct + c_delta) - ec.dot(currcurrt + delta),2);
+
+          T curl_term = pow(ea.dot(aat ) - ea.dot(currcurrt ),2);
+          curl_term +=  pow(eb.dot(bbt ) - eb.dot(currcurrt ),2);
+          curl_term +=  pow(ec.dot(cct ) - ec.dot(currcurrt ),2);
 
           curls_sym(f_idx) = TinyAD::to_passive(curl_term);
 
@@ -274,7 +278,7 @@ public:
           T delta_weight = .1; // std::min(w_curl/100., 1./w_attenuate);
           T w_curl_new = std::min(1e4, 1./w_attenuate) * w_curl;
 
-          T ret = delta_norm_term * delta_weight;
+          T ret = 0.; // delta_norm_term * delta_weight;
           if (w_smooth_vector > 0)
             return w_smooth_vector * primal_dirichlet_term + ret;
           if (w_smooth > 0)
