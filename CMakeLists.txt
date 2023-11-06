@@ -98,12 +98,13 @@ include_directories(${SUITESPARSE_INCLUDE_DIRS})
 find_package(TinyAD REQUIRED)
 find_package(libigl REQUIRED)
 # include(libigl)
-file(GLOB SRCFILES src/*.cpp src/*.h src/*.hpp lib/*.cpp lib/*.h lib/*.hpp)	 
+file(GLOB SRCFILES src/*.cpp src/*.h src/*.hpp)
+file(GLOB LIBFILES lib/*.cpp lib/*.h lib/*.hpp)	 
 # file(GLOB SRCFILES lib/*.cpp lib/*.h lib/*.hpp)	   
 
-add_library(${PROJECT_NAME} ${SRCFILES})
+add_library(${PROJECT_NAME} ${SRCFILES} ${LIBFILES})
 target_include_directories(${PROJECT_NAME} PUBLIC ${EIGEN3_INCLUDE_DIR})
-target_link_libraries(${PROJECT_NAME} igl::core TinyAD ${SUITESPARSE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} igl::core polyscope TinyAD ${SUITESPARSE_LIBRARIES})
 
 set_target_properties(starter-kit PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
@@ -118,11 +119,13 @@ add_subdirectory(tools/01_basic_test)
 add_subdirectory(tools/02_tiny_ad_test)
 add_subdirectory(tools/03_disk_bvp_v1)
 add_subdirectory(tools/04_disk_bvp_wdelta)
-add_subdirectory(tools/05_disk_bvp_moments)
-add_subdirectory(tools/06_disk_prox_gamma)
 
-add_subdirectory(tools/06_disk_bvp_with_gamma)
-add_subdirectory(tools/07_disk_bvp_with_gamma_jacobian)
+add_subdirectory(tools/05_disk_bvp_vtv)
+add_subdirectory(tools/06_disk_bvp_moments)
+# add_subdirectory(tools/06_disk_prox_gamma)
+
+# add_subdirectory(tools/06_disk_bvp_with_gamma)
+# add_subdirectory(tools/07_disk_bvp_with_gamma_jacobian)
 
 # # Create an executable
 # add_executable(
