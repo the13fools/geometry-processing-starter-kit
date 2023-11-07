@@ -4,7 +4,8 @@
 
 #include <Eigen/Dense>
 
-
+#include <iostream>
+#include <fstream>
 //////
 /// A robust 2x2 svd apparently.  Not well tested.  
 /////
@@ -208,6 +209,53 @@ Eigen::Matrix<ScalarType, Rows * Cols, 1> flatten(const Eigen::Matrix<ScalarType
       // ret << r(0,0), r(0, 1), r(1,0), r(1,1); // could maybe also use v1.resize(1, 4); possibly faster
       return ret;
     }
+
+////////////
+////  Serialize/Deserialize 
+////////////
+
+template<typename Derived>
+void serializeEigenMatrix(const Eigen::MatrixBase<Derived>& matrix, const std::string& filename) {
+    std::ofstream out(filename, std::ios::out | std::ios::binary);
+    if (!out.is_open()) {
+        throw std::runtime_error("Unable to open file for writing");
+    }
+
+    // Write the matrix dimensions
+    typename Derived::Index rows = matrix.rows(), cols = matrix.cols();
+    out.write(reinterpret_cast<const char*>(&rows), sizeof(typename Derived::Index));
+    out.write(reinterpret_cast<const char*>(&cols), sizeof(typename Derived::Index));
+
+    // Write the matrix data
+    out.write(reinterpret_cast<const char*>(matrix.data()), rows * cols * sizeof(typename Derived::Scalar));
+
+    out.close();
+}
+
+
+template<typename MatrixType>
+MatrixType deserializeEigenMatrix(const std::string& filename) {
+    std::ifstream in(filename, std::ios::in | std::ios::binary);
+    if (!in.is_open()) {
+        throw std::runtime_error("Unable to open file for reading");
+    }
+
+    // Read the matrix dimensions
+    typename MatrixType::Index rows = 0, cols = 0;
+    in.read(reinterpret_cast<char*>(&rows), sizeof(typename MatrixType::Index));
+    in.read(reinterpret_cast<char*>(&cols), sizeof(typename MatrixType::Index));
+
+    // Allocate matrix
+    MatrixType matrix(rows, cols);
+
+    // Read the matrix data
+    in.read(reinterpret_cast<char*>(matrix.data()), rows * cols * sizeof(typename MatrixType::Scalar));
+
+    in.close();
+
+    return matrix;
+}
+
 
 
 //     /////// Simulation Step 
