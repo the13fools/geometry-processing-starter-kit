@@ -4,6 +4,17 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <Eigen/Dense>
+#include "Serialization.h" // Include the Serialization header
+
+// Define the FileType enum
+enum class FileType {
+    BFRA,
+    BMOM,
+    OBJ,
+    FRA,
+    MOM,
+};
 
 /**
  * The FileParser class is responsible for parsing files of different types
@@ -15,29 +26,26 @@ public:
     explicit FileParser(const std::string& directoryPath);
 
     // Parse a file with a given ID
-    bool parseFileWithID(int fileId);
+    bool parseFileWithID(Eigen::VectorXd& data, FileType fileType, int fileId);
 
     // Retrieve the largest file's data
-    bool parseLargestFile();
+    bool parseLargestFile(Eigen::VectorXd& data, FileType fileType);
 
-    // Load additional .obj file if found
-    bool parseObjFile();
+    // Load an .obj file if found
+    bool parseObjFile(Eigen::MatrixXd& V, Eigen::MatrixXi& F);
 
-    // Get the path to the largest bfra file
-    const std::string& getLargestBfraFile() const { return largestBfraFile; }
-
-    // Get the path to the largest bmom file
-    const std::string& getLargestBmomFile() const { return largestBmomFile; }
+    // Update the current directory path
+    void setDirectoryPath(const std::string& directoryPath);
 
 private:
     std::string directoryPath;
     std::vector<std::string> bfraFiles;
     std::vector<std::string> bmomFiles;
-    std::string objFilePath; // Path to the .obj file if found
-    std::string largestBfraFile; // Path to the largest bfra file
-    std::string largestBmomFile; // Path to the largest bmom file
+    std::string objFilePath;
+    std::string largestBfraFile;
+    std::string largestBmomFile;
 
-    // Helper functions to find and sort files, populate the file lists
+    // Helper functions to scan and sort files
     void scanDirectory();
     void findLargestIDFile();
 };

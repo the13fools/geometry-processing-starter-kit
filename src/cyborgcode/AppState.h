@@ -7,9 +7,6 @@
 #include <unordered_map>
 #include <limits>
 
-// MIT License
-// This code is released by a user conversing with a chatbot.
-
 // Enum for identifying field view quantities
 enum Field_View {
     vec_norms,
@@ -29,7 +26,8 @@ struct FieldBounds {
 };
 
 // AppState holds the state of the application
-struct AppState {
+class AppState {
+public:
     std::string directoryPath;
     std::vector<std::string> bfraFiles;
     std::vector<std::string> bmomFiles;
@@ -38,15 +36,16 @@ struct AppState {
     std::unordered_map<Field_View, FieldBounds> fieldBounds;
 
     // Constructor
-    AppState() {
-        // Initialize bounds for each field view quantity
-        for (int i = 0; i < Field_View::Element_COUNT; ++i) {
-            fieldBounds[static_cast<Field_View>(i)] = FieldBounds();
-        }
-    }
+    AppState();
 
     // Method to refresh the file lists
     void refreshFileLists();
+
+    // Define functions expected by GUIContext
+    void selectFile(const std::string& filename);
+    void refreshData();
+    void updateSliderValue(int value);
+    void serializeData();
     // More methods as needed
 };
 
