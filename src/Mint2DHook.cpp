@@ -338,67 +338,12 @@ void Mint2DHook::initSimulation()
             cur_iter++;
             inner_loop_iter++;
 
+ auto t1 = std::chrono::high_resolution_clock::now();
 
-            auto t1 = std::chrono::high_resolution_clock::now();
+             TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
 
+// func.eval_with_hessian_proj
 
-            // auto [f, g, H_proj] = func.eval_with_hessian_proj(x);
-            auto [f, g, H_proj] = func.eval_with_derivatives(x);
-            TINYAD_DEBUG_OUT("Energy in iteration " << cur_iter << ": " << f);
-            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros() << "number of non-zeros per dof " << H_proj.nonZeros() / (6*F.rows()) << " # rows " << H_proj.rows() << " faces " << F.rows() <<std::endl;
-
-            // std::cout<<"the number of nonzeros "<<H_proj.nonZeros()<<std::endl;
-            Eigen::VectorXd d;
-            double dec;
-            // d = TinyAD::newton_direction(g, H_proj, solver);
-             // = TinyAD::newton_decrement(d, g);
-
-            if (prev_energy < 0)
-            {
-              prev_energy = f + 100 * convergence_eps;
-            }
-            
-            try
-            {
-              if (w_smooth_vector > 0 || useProjHessian)
-              {
-                auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
-                f = f_h;
-                g = g_h;
-                H_proj = H_proj_h;
-                d = TinyAD::newton_direction(g, H_proj, solver, 0.);
-                dec = TinyAD::newton_decrement(d, g);
-
-                if ( dec / f < 1e-3)
-                {
-                  useProjHessian = false;
-                  std::cout << "switch off projected hessian to fine-tune result" << std::endl;
-                }
-
-
-              }
-              else
-              {
-                d = TinyAD::newton_direction(g, H_proj, solver, identity_weight);
-                dec = TinyAD::newton_decrement(d, g);
-                identity_weight = identity_weight / 2.;
-              }
-              
-            }
-            catch(const std::exception& e)
-            {
-              auto [f_h, g_h, H_proj_h] = func.eval_with_hessian_proj(x);
-              f = f_h;
-              g = g_h;
-              H_proj = H_proj_h;
-              d = TinyAD::newton_direction(g, H_proj, solver);
-              dec = TinyAD::newton_decrement(d, g);
-              if ( !useProjHessian )
-                identity_weight = identity_weight * 10.;
-            }
-            
-            // 
-            std::cout << "current decrement: " << dec << std::endl;
             // if( dec < convergence_eps )
             // {
             //   buffer -= 1;
