@@ -29,14 +29,15 @@
 // #include <iostream>
 
 
-///// A bit of hackery, curtousy of https://stackoverflow.com/a/13980645
-// //// Having to pass around templates is a bit ugly, and unnecessary in this case.
-// // decltype(TinyAD::scalar_function<6>(TinyAD::range(1)))
-// // decltype(TinyAD::scalar_function<6>(TinyAD::range(1)));
+/// A bit of hackery, curtousy of https://stackoverflow.com/a/13980645
+//// Having to pass around templates is a bit ugly, and unnecessary in this case.
+// decltype(TinyAD::scalar_function<6>(TinyAD::range(1)))
+// decltype(TinyAD::scalar_function<6>(TinyAD::range(1)));
 // class TinyADFuncBase
 // {
 // public:
 //     virtual ~TinyADFuncBase() {}
+//     virtual evaluate() {};
 //     template<class T> const T& get() const; //to be implimented after Parameter
 //     template<class T, class U> void setValue(const U& rhs); //to be implimented after Parameter
 // };
@@ -57,6 +58,10 @@
 // { return dynamic_cast<const TinyADFunc<T>&>(*this).get(); }
 // template<class T, class U> void TinyADFuncBase::setValue(const U& rhs)
 // { return dynamic_cast<TinyADFunc<T>&>(*this).setValue(rhs); }
+
+
+// // template<typename N> 
+// class dummy 
 
 
 
@@ -108,6 +113,8 @@ public:
 
         Field_View current_element;
 
+        // using funcw = decltype(TinyAD::scalar_function<6>(TinyAD::range(1)));
+
 
     protected:
         VizHelper::VizCache vc;
@@ -151,9 +158,9 @@ public:
         bool useProjHessian = true;
         Eigen::VectorXd x;
 
-        decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
+        // funcw func;
 
-        // //   decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
+          decltype(TinyAD::scalar_function<6>(TinyAD::range(1))) func;
         // TinyADFuncBase func_wrapper;
 
         int buffer;

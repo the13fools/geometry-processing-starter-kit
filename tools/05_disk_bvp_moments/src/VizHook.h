@@ -58,7 +58,9 @@ public:
       // cur_mesh_name = "circle_subdiv";
 
       // cur_mesh_name = "circle";
-      cur_mesh_name = "circle_1000";
+      cur_mesh_name = "circle_irreg";
+
+      // cur_mesh_name = "circle_1000";
 
 
       // Call Parent initialization to load mesh and initialize data structures
@@ -195,6 +197,7 @@ public:
           // aat = aat + a_delta;
           // bbt = bbt + b_delta; 
           // cct = cct + c_delta;
+          // currcurrt = currcurrt + delta;
 
 
 
@@ -276,9 +279,9 @@ public:
           // T atten = 1.;
 
           T delta_weight = .1; // std::min(w_curl/100., 1./w_attenuate);
-          T w_curl_new = std::min(1e4, 1./w_attenuate) * w_curl;
+          T w_curl_new = std::min(1e8, 1./w_attenuate) * w_curl;
 
-          T ret = 0.; // delta_norm_term * delta_weight;
+          T ret = delta_norm_term * delta_weight;
           if (w_smooth_vector > 0)
             return w_smooth_vector * primal_dirichlet_term + ret;
           if (w_smooth > 0)
