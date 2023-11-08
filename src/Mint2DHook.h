@@ -17,8 +17,6 @@
 
 // #include "UtilsMisc.h"
 
-#include <TinyAD/Utils/LinearSolver.hh>
-
 #include <TinyAD/ScalarFunction.hh>
 // #include <TinyAD/Utils/NewtonDirection.hh>
 // #include <TinyAD/Utils/NewtonDecrement.hh>
@@ -151,8 +149,6 @@ public:
         int inner_loop_iter = 0;
         double convergence_eps = 1e-10;
         double identity_weight = 1e-6;
-
-        TinyAD::LinearSolver<double> solver;
 
         double prev_energy; 
         bool useProjHessian = true;
